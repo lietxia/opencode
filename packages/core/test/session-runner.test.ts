@@ -54,6 +54,7 @@ let streamStarted: Deferred.Deferred<void> | undefined
 let streamFailure: LLMError | undefined
 let toolExecutionGate: Deferred.Deferred<void> | undefined
 let toolExecutionsStarted: Deferred.Deferred<void> | undefined
+let toolExecutionsReady = 5
 let activeToolExecutions = 0
 let maxActiveToolExecutions = 0
 const client = Layer.succeed(
@@ -82,6 +83,7 @@ const client = Layer.succeed(
   }),
 )
 const model = Model.make({ id: "fake-model", provider: "fake", route: OpenAIChat.route })
+const replacementModel = Model.make({ id: "replacement", provider: "fake", route: OpenAIChat.route })
 const authorizations: ToolRegistry.AuthorizeInput[] = []
 const executions: string[] = []
 const permission = Layer.succeed(
@@ -114,7 +116,7 @@ const echo = Layer.effectDiscard(
               executions.push(text)
               activeToolExecutions++
               maxActiveToolExecutions = Math.max(maxActiveToolExecutions, activeToolExecutions)
-              if (activeToolExecutions === 5 && toolExecutionsStarted) {
+              if (activeToolExecutions === toolExecutionsReady && toolExecutionsStarted) {
                 yield* Deferred.succeed(toolExecutionsStarted, undefined)
               }
               if (toolExecutionGate) yield* Deferred.await(toolExecutionGate)
@@ -133,10 +135,13 @@ const echo = Layer.effectDiscard(
     }),
   ),
 ).pipe(Layer.provide(registry))
-const models = SessionRunnerModel.layerWith(() => Effect.succeed(model))
+const models = SessionRunnerModel.layerWith((session) =>
+  Effect.succeed(session.model?.id === "replacement" ? replacementModel : model),
+)
 const systemContextKey = SystemContext.Key.make("test/context")
 let systemBaseline = "Initial context"
 let systemRemoved = false
+let systemUnavailable = false
 const systemContext = Layer.succeed(
   SessionSystemContext.Service,
   SessionSystemContext.Service.of({
@@ -144,15 +149,17 @@ const systemContext = Layer.succeed(
       Effect.sync(() => ({
         entries: systemRemoved
           ? []
-          : [
-              {
-                _tag: "Available" as const,
-                key: systemContextKey,
-                baseline: systemBaseline,
-                update: systemBaseline,
-                hash: Hash.sha256(systemBaseline),
-              },
-            ],
+          : systemUnavailable
+            ? [{ _tag: "Unavailable" as const, key: systemContextKey }]
+            : [
+                {
+                  _tag: "Available" as const,
+                  key: systemContextKey,
+                  baseline: systemBaseline,
+                  update: systemBaseline,
+                  hash: Hash.sha256(systemBaseline),
+                },
+              ],
       })),
   }),
 )
@@ -224,6 +231,7 @@ const setup = Effect.gen(function* () {
   response = []
   systemBaseline = "Initial context"
   systemRemoved = false
+  systemUnavailable = false
   responses = undefined
   streamFailure = undefined
   responseStream = undefined
@@ -231,6 +239,7 @@ const setup = Effect.gen(function* () {
   streamStarted = undefined
   toolExecutionGate = undefined
   toolExecutionsStarted = undefined
+  toolExecutionsReady = 5
   activeToolExecutions = 0
   maxActiveToolExecutions = 0
   yield* db
@@ -599,6 +608,105 @@ describe("SessionRunnerLLM", () => {
     }),
   )
 
+  it.effect("defers replacement while admitted context is temporarily unavailable", () =>
+    Effect.gen(function* () {
+      yield* setup
+      const session = yield* SessionV2.Service
+      const events = yield* EventV2.Service
+      yield* session.prompt({ sessionID, prompt: new Prompt({ text: "First" }), resume: false })
+
+      requests.length = 0
+      response = []
+      yield* session.resume(sessionID)
+      yield* events.publish(SessionEvent.ModelSwitched, {
+        sessionID,
+        timestamp: DateTime.makeUnsafe(1),
+        model: { id: ModelV2.ID.make("replacement"), providerID: ProviderV2.ID.make("fake") },
+      })
+      systemUnavailable = true
+      yield* session.prompt({ sessionID, prompt: new Prompt({ text: "Second" }), resume: false })
+      yield* session.resume(sessionID)
+      systemUnavailable = false
+      systemBaseline = "Replacement context"
+      yield* session.prompt({ sessionID, prompt: new Prompt({ text: "Third" }), resume: false })
+      yield* session.resume(sessionID)
+
+      expect(requests.map((request) => request.system.map((part) => part.text))).toEqual([
+        ["Initial context"],
+        ["Initial context"],
+        ["Replacement context"],
+      ])
+      const { db } = yield* Database.Service
+      expect(
+        yield* db
+          .select({ id: EventTable.id })
+          .from(EventTable)
+          .where(eq(EventTable.type, "session.next.context.replaced.1"))
+          .all()
+          .pipe(Effect.orDie),
+      ).toHaveLength(1)
+    }),
+  )
+
+  it.effect("replays retained context projections while replacement is pending", () =>
+    Effect.gen(function* () {
+      yield* setup
+      const session = yield* SessionV2.Service
+      const events = yield* EventV2.Service
+      yield* session.prompt({ sessionID, prompt: new Prompt({ text: "First" }), resume: false })
+
+      requests.length = 0
+      response = []
+      yield* session.resume(sessionID)
+      systemBaseline = "Changed context"
+      yield* session.prompt({ sessionID, prompt: new Prompt({ text: "Second" }), resume: false })
+      yield* session.resume(sessionID)
+      yield* events.publish(SessionEvent.ModelSwitched, {
+        sessionID,
+        timestamp: DateTime.makeUnsafe(1),
+        model: { id: ModelV2.ID.make("replacement"), providerID: ProviderV2.ID.make("fake") },
+      })
+
+      yield* replaySessionProjection(sessionID)
+      systemBaseline = "Replacement context"
+      yield* session.prompt({ sessionID, prompt: new Prompt({ text: "Third" }), resume: false })
+      yield* session.resume(sessionID)
+      expect(requests.at(-1)?.system.map((part) => part.text)).toEqual(["Replacement context"])
+    }),
+  )
+
+  it.effect("replays retained context projections after multiple replacements", () =>
+    Effect.gen(function* () {
+      yield* setup
+      const session = yield* SessionV2.Service
+      const events = yield* EventV2.Service
+      yield* session.prompt({ sessionID, prompt: new Prompt({ text: "First" }), resume: false })
+
+      requests.length = 0
+      response = []
+      yield* session.resume(sessionID)
+      yield* events.publish(SessionEvent.ModelSwitched, {
+        sessionID,
+        timestamp: DateTime.makeUnsafe(1),
+        model: { id: ModelV2.ID.make("replacement-1"), providerID: ProviderV2.ID.make("fake") },
+      })
+      systemBaseline = "Replacement context 1"
+      yield* session.prompt({ sessionID, prompt: new Prompt({ text: "Second" }), resume: false })
+      yield* session.resume(sessionID)
+      yield* events.publish(SessionEvent.ModelSwitched, {
+        sessionID,
+        timestamp: DateTime.makeUnsafe(2),
+        model: { id: ModelV2.ID.make("replacement-2"), providerID: ProviderV2.ID.make("fake") },
+      })
+      systemBaseline = "Replacement context 2"
+      yield* session.prompt({ sessionID, prompt: new Prompt({ text: "Third" }), resume: false })
+      yield* session.resume(sessionID)
+
+      yield* replaySessionProjection(sessionID)
+      expect(requests.at(-1)?.system.map((part) => part.text)).toEqual(["Replacement context 2"])
+    }),
+  )
+
   it.effect("replaces the baseline lazily after completed compaction without reopening replacement on replay", () =>
     Effect.gen(function* () {
       yield* setup
@@ -802,6 +910,49 @@ describe("SessionRunnerLLM", () => {
           ],
         },
         { type: "assistant", finish: "stop", content: [{ type: "text", id: "text-final", text: "Done" }] },
+      ])
+    }),
+  )
+
+  it.effect("reloads a model switch before a tool-driven continuation turn", () =>
+    Effect.gen(function* () {
+      yield* setup
+      const session = yield* SessionV2.Service
+      const events = yield* EventV2.Service
+      yield* session.prompt({ sessionID, prompt: new Prompt({ text: "Echo this" }), resume: false })
+
+      requests.length = 0
+      responses = [
+        [
+          LLMEvent.stepStart({ index: 0 }),
+          LLMEvent.toolCall({ id: "call-echo", name: "echo", input: { text: "hello" } }),
+          LLMEvent.stepFinish({ index: 0, reason: "tool-calls" }),
+          LLMEvent.finish({ reason: "tool-calls" }),
+        ],
+        [
+          LLMEvent.stepStart({ index: 0 }),
+          LLMEvent.stepFinish({ index: 0, reason: "stop" }),
+          LLMEvent.finish({ reason: "stop" }),
+        ],
+      ]
+      toolExecutionGate = yield* Deferred.make<void>()
+      toolExecutionsStarted = yield* Deferred.make<void>()
+      toolExecutionsReady = 1
+      const run = yield* Effect.forkChild(session.resume(sessionID))
+      yield* Deferred.await(toolExecutionsStarted)
+      yield* events.publish(SessionEvent.ModelSwitched, {
+        sessionID,
+        timestamp: DateTime.makeUnsafe(1),
+        model: { id: ModelV2.ID.make("replacement"), providerID: ProviderV2.ID.make("fake") },
+      })
+      systemBaseline = "Replacement context"
+      yield* Deferred.succeed(toolExecutionGate, undefined)
+      yield* Fiber.join(run)
+
+      expect(requests.map((request) => request.model)).toEqual([model, replacementModel])
+      expect(requests.map((request) => request.system.map((part) => part.text))).toEqual([
+        ["Initial context"],
+        ["Replacement context"],
       ])
     }),
   )

@@ -681,7 +681,7 @@ Change:
 
 Compatibility:
 
-- This adds one database migration and one synchronized Session event type.
+- The unpublished Context Epoch schema is consolidated into one database migration and this adds one synchronized Session event type.
 - Existing experimental V2 Session databases remain disposable across incompatible pre-launch event-schema changes.
 - Chronological context updates, replacement epochs after compaction or model switches, project instructions, skills guidance, and plugin transforms remain follow-up slices.
 
@@ -697,13 +697,13 @@ Change:
 
 - Refresh Location-scoped Context Components at each safe provider-turn boundary.
 - Keep the stored baseline immutable while admitting changed component values as runner-private chronological `Message.system(...)` history.
-- Advance component-hash checkpoints transactionally even when a removed component produces no visible update text.
+- Emit an explicit tombstone update and advance component-hash checkpoints transactionally when a component is removed.
 - Keep ordinary Session transcript APIs unchanged while runner history merges visible Session messages and hidden context updates by durable aggregate sequence.
 - Reject chronological system updates that would split a local tool call from its result across provider protocols; use wrapped user fallback when Anthropic native system-update placement is unsupported.
 
 Compatibility:
 
-- This adds one database migration and one synchronized Session event type.
+- The unpublished Context Epoch schema remains consolidated into one database migration and this adds one synchronized Session event type.
 - Existing experimental V2 Session databases remain disposable across incompatible pre-launch event-schema changes.
 - Replacement epochs after compaction or model switches, project instructions, skills guidance, and plugin transforms remain follow-up slices.
 
@@ -712,7 +712,7 @@ Compatibility:
 Affected schema:
 
 - Add synchronized `session.next.context.replaced.1` Session events.
-- Add `session_context_epoch.replacement_pending` and `session_context_epoch.replacement_seq` for idempotent lazy replacement requests.
+- Add nullable `session_context_epoch.replacement_seq` for idempotent lazy replacement requests.
 
 Change:
 
@@ -723,6 +723,6 @@ Change:
 
 Compatibility:
 
-- This adds two additive database migrations and one synchronized Session event type.
+- The unpublished Context Epoch schema remains consolidated into one database migration and this adds one synchronized Session event type.
 - Existing experimental V2 Session databases remain disposable across incompatible pre-launch event-schema changes.
 - Compaction execution, project instructions, skills guidance, and plugin transforms remain follow-up slices.

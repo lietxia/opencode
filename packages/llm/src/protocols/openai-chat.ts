@@ -254,7 +254,7 @@ const lowerMessages = Effect.fn("OpenAIChat.lowerMessages")(function* (request: 
   const messages = [...system]
   for (const [index, message] of request.messages.entries()) {
     if (message.role === "system") {
-      yield* ProviderShared.guardSystemUpdatePlacement("OpenAI Chat", request.messages[index - 1])
+      yield* ProviderShared.guardSystemUpdatePlacement("OpenAI Chat", request.messages, index)
       const part = yield* ProviderShared.wrappedSystemUpdate("OpenAI Chat", message)
       const previous = messages.at(-1)
       if (previous?.role === "user")

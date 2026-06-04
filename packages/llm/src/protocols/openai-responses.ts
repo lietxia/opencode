@@ -340,7 +340,7 @@ const lowerMessages = Effect.fn("OpenAIResponses.lowerMessages")(function* (requ
 
   for (const [index, message] of request.messages.entries()) {
     if (message.role === "system") {
-      yield* ProviderShared.guardSystemUpdatePlacement("OpenAI Responses", request.messages[index - 1])
+      yield* ProviderShared.guardSystemUpdatePlacement("OpenAI Responses", request.messages, index)
       const part = yield* ProviderShared.wrappedSystemUpdate("OpenAI Responses", message)
       const previous = input.at(-1)
       if (previous && "role" in previous && previous.role === "user")

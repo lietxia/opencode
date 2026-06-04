@@ -1,9 +1,9 @@
 {
   "version": "7",
   "dialect": "sqlite",
-  "id": "85667f6a-603f-4041-be9b-783a34eb74d4",
+  "id": "6fe30aa9-5772-49a6-b688-d022dbd28903",
   "prevIds": [
-    "f08074bb-2b27-4365-924c-5a4eae9a5194"
+    "fc92fa34-8074-44c3-88f0-a5417f7fd92d"
   ],
   "ddl": [
     {
@@ -819,6 +819,16 @@
       "default": null,
       "generated": null,
       "name": "baseline_seq",
+      "entityType": "columns",
+      "table": "session_context_epoch"
+    },
+    {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "replacement_seq",
       "entityType": "columns",
       "table": "session_context_epoch"
     },
@@ -1922,24 +1932,6 @@
       "name": "part_session_idx",
       "entityType": "indexes",
       "table": "part"
-    },
-    {
-      "columns": [
-        {
-          "value": "session_id",
-          "isExpression": false
-        },
-        {
-          "value": "seq",
-          "isExpression": false
-        }
-      ],
-      "isUnique": false,
-      "where": null,
-      "origin": "manual",
-      "name": "session_context_message_session_seq_idx",
-      "entityType": "indexes",
-      "table": "session_context_message"
     },
     {
       "columns": [

@@ -15,6 +15,7 @@ export interface Interface {
   readonly context: (sessionID: SessionSchema.ID) => Effect.Effect<SessionMessage.Message[], MessageDecodeError>
   readonly runnerContext: (
     sessionID: SessionSchema.ID,
+    baselineSeq: number,
   ) => Effect.Effect<SessionContext.RunnerMessage[], MessageDecodeError>
   readonly message: (
     messageID: SessionMessage.ID,
@@ -37,8 +38,8 @@ export const layer = Layer.effect(
       context: Effect.fn("SessionStore.context")(function* (sessionID) {
         return yield* SessionContext.load(db, sessionID)
       }),
-      runnerContext: Effect.fn("SessionStore.runnerContext")(function* (sessionID) {
-        return yield* SessionContext.loadForRunner(db, sessionID)
+      runnerContext: Effect.fn("SessionStore.runnerContext")(function* (sessionID, baselineSeq) {
+        return yield* SessionContext.loadForRunner(db, sessionID, baselineSeq)
       }),
       message: Effect.fn("SessionStore.message")(function* (messageID) {
         const row = yield* db

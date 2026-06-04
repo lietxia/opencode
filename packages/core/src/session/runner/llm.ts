@@ -98,8 +98,11 @@ export const layer = Layer.effect(
     const getContext = Effect.fn("SessionRunner.getContext")(function* (sessionID: SessionSchema.ID) {
       return yield* store.context(sessionID)
     })
-    const getRunnerContext = Effect.fn("SessionRunner.getRunnerContext")(function* (sessionID: SessionSchema.ID) {
-      return yield* store.runnerContext(sessionID)
+    const getRunnerContext = Effect.fn("SessionRunner.getRunnerContext")(function* (
+      sessionID: SessionSchema.ID,
+      baselineSeq: number,
+    ) {
+      return yield* store.runnerContext(sessionID, baselineSeq)
     })
 
     const failInterruptedTools = Effect.fn("SessionRunner.failInterruptedTools")(function* (
@@ -132,9 +135,10 @@ export const layer = Layer.effect(
       cause.reasons.some((reason) => Cause.isDieReason(reason) && reason.defect instanceof QuestionV2.RejectedError)
 
     const runTurn = Effect.fn("SessionRunner.runTurn")(function* (
-      session: SessionSchema.Info,
+      sessionID: SessionSchema.ID,
       promotion: "steer" | "queue" | undefined,
     ) {
+      const session = yield* getSession(sessionID)
       const model = yield* models.resolve(session)
       const toolFibers = yield* FiberSet.make<void, never>()
       let needsContinuation = false
@@ -143,12 +147,11 @@ export const layer = Layer.effect(
         yield* SessionInput.promoteNextQueued(db, events, session.id)
         yield* SessionInput.promoteSteers(db, events, session.id)
       }
-      yield* failInterruptedTools(session.id)
       const system = yield* SessionContextEpoch.prepare(db, events, systemContext, session.id)
-      const context = yield* getRunnerContext(session.id)
+      const context = yield* getRunnerContext(session.id, system.baselineSeq)
       const request = LLM.request({
         model,
-        system: system.map((part) => SystemPart.make(part.text)),
+        system: system.baseline.map((part) => SystemPart.make(part.text)),
         messages: toLLMMessages(context, model),
         tools: yield* tools.definitions(),
       })
@@ -248,12 +251,13 @@ export const layer = Layer.effect(
       const hasSteer = yield* SessionInput.hasPending(db, input.sessionID, ["steer"])
       const hasQueue = yield* SessionInput.hasPending(db, input.sessionID, ["queue"])
       if (input.force !== true && !hasSteer && !hasQueue) return
+      yield* failInterruptedTools(input.sessionID)
       let promotion: "steer" | "queue" | undefined = hasSteer ? "steer" : hasQueue ? "queue" : undefined
       let openActivity = input.force === true || hasSteer || hasQueue
       while (openActivity) {
         let needsContinuation = true
         for (let step = 0; step < MAX_STEPS; step++) {
-          needsContinuation = yield* runTurn(session, promotion)
+          needsContinuation = yield* runTurn(session.id, promotion)
           promotion = "steer"
           if (!needsContinuation) needsContinuation = yield* SessionInput.hasPending(db, input.sessionID, ["steer"])
           if (!needsContinuation) break

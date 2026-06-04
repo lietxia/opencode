@@ -54,7 +54,7 @@ export const PartSchema = Schema.Struct({
   text: Schema.String,
 })
 export const PartsSchema = Schema.Array(PartSchema)
-export const CheckpointSchema = Schema.Record(Schema.String, Schema.String)
+export const CheckpointSchema = Schema.Record(Key, Schema.String)
 
 export type Checkpoint = Readonly<Record<string, string>>
 
@@ -111,6 +111,7 @@ export function initialize(snapshot: Snapshot): Initialized {
 }
 
 export function refresh(snapshot: Snapshot, previous: Checkpoint): Refreshed {
+  const keys = new Set(snapshot.entries.map((entry) => entry.key))
   return {
     changes: [
       ...snapshot.entries.flatMap((entry) =>
@@ -119,18 +120,15 @@ export function refresh(snapshot: Snapshot, previous: Checkpoint): Refreshed {
           : [],
       ),
       ...Object.keys(previous).flatMap((key) =>
-        snapshot.entries.some((entry) => entry.key === key)
-          ? []
-          : [{ key: Key.make(key), text: `System context component removed: ${key}` }],
+        keys.has(Key.make(key)) ? [] : [{ key: Key.make(key), text: `System context component removed: ${key}` }],
       ),
     ],
     checkpoint: nextCheckpoint(snapshot, previous),
   }
 }
 
-export function render(parts: ReadonlyArray<Part>) {
-  return parts.map((part) => part.text).join("\n\n")
-}
+export const replacementBlocked = (snapshot: Snapshot, previous: Checkpoint) =>
+  snapshot.entries.some((entry) => entry._tag === "Unavailable" && getCheckpoint(previous, entry.key) !== undefined)
 
 function nextCheckpoint(snapshot: Snapshot, previous: Checkpoint) {
   return Object.fromEntries(

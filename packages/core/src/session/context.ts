@@ -4,7 +4,7 @@ import { Database } from "../database/database"
 import { MessageDecodeError } from "./error"
 import { SessionMessage } from "./message"
 import { SessionSchema } from "./schema"
-import { SessionContextEpochTable, SessionContextMessageTable, SessionMessageTable } from "./sql"
+import { SessionContextMessageTable, SessionMessageTable } from "./sql"
 import type { SystemContext } from "../system-context"
 
 type DatabaseService = Database.Interface["db"]
@@ -65,24 +65,14 @@ export const load = Effect.fn("SessionContext.load")(function* (db: DatabaseServ
 export const loadForRunner = Effect.fn("SessionContext.loadForRunner")(function* (
   db: DatabaseService,
   sessionID: SessionSchema.ID,
+  baselineSeq: number,
 ) {
   const compaction = yield* latestCompaction(db, sessionID)
   const messages = yield* messageRows(db, sessionID, compaction)
-  const epoch = yield* db
-    .select({ baselineSeq: SessionContextEpochTable.baseline_seq })
-    .from(SessionContextEpochTable)
-    .where(eq(SessionContextEpochTable.session_id, sessionID))
-    .get()
-    .pipe(Effect.orDie)
   const updates = yield* db
     .select()
     .from(SessionContextMessageTable)
-    .where(
-      and(
-        eq(SessionContextMessageTable.session_id, sessionID),
-        epoch ? gt(SessionContextMessageTable.seq, epoch.baselineSeq) : undefined,
-      ),
-    )
+    .where(and(eq(SessionContextMessageTable.session_id, sessionID), gt(SessionContextMessageTable.seq, baselineSeq)))
     .orderBy(asc(SessionContextMessageTable.seq))
     .all()
     .pipe(Effect.orDie)

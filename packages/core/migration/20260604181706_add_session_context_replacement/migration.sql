@@ -1,1 +1,0 @@
-ALTER TABLE `session_context_epoch` ADD `replacement_pending` integer DEFAULT false NOT NULL;

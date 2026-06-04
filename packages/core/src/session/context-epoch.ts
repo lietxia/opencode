@@ -1,6 +1,6 @@
 export * as SessionContextEpoch from "./context-epoch"
 
-import { and, eq, sql } from "drizzle-orm"
+import { and, eq, isNull, lt, sql } from "drizzle-orm"
 import { DateTime, Effect, Schema } from "effect"
 import type { Database } from "../database/database"
 import { EventV2 } from "../event"
@@ -24,28 +24,33 @@ export const prepare = Effect.fn("SessionContextEpoch.prepare")(function* (
   const stored = yield* find(db, sessionID)
   if (!stored) {
     const initialized = SystemContext.initialize(snapshot)
-    yield* events.publish(SessionEvent.ContextInitialized, {
+    const event = yield* events.publish(SessionEvent.ContextInitialized, {
       sessionID,
       timestamp: yield* DateTime.now,
       baseline: initialized.baseline,
       checkpoint: initialized.checkpoint,
     })
-    return initialized.baseline
+    if (event.seq === undefined) return yield* Effect.die("Synchronized Session event is missing aggregate sequence")
+    return { baseline: initialized.baseline, baselineSeq: event.seq }
   }
-  if (stored.replacement_pending) {
+  if (stored.replacement_seq !== null) {
+    if (SystemContext.replacementBlocked(snapshot, stored.checkpoint))
+      return { baseline: stored.baseline, baselineSeq: stored.baseline_seq }
     const initialized = SystemContext.initialize(snapshot)
-    yield* events.publish(SessionEvent.ContextReplaced, {
+    const event = yield* events.publish(SessionEvent.ContextReplaced, {
       sessionID,
       timestamp: yield* DateTime.now,
       expectedRevision: stored.revision,
       baseline: initialized.baseline,
       checkpoint: initialized.checkpoint,
     })
-    return initialized.baseline
+    if (event.seq === undefined) return yield* Effect.die("Synchronized Session event is missing aggregate sequence")
+    return { baseline: initialized.baseline, baselineSeq: event.seq }
   }
 
   const refreshed = SystemContext.refresh(snapshot, stored.checkpoint)
-  if (sameCheckpoint(refreshed.checkpoint, stored.checkpoint)) return stored.baseline
+  if (sameCheckpoint(refreshed.checkpoint, stored.checkpoint))
+    return { baseline: stored.baseline, baselineSeq: stored.baseline_seq }
   yield* events.publish(SessionEvent.ContextUpdated, {
     sessionID,
     timestamp: yield* DateTime.now,
@@ -53,7 +58,7 @@ export const prepare = Effect.fn("SessionContextEpoch.prepare")(function* (
     parts: refreshed.changes,
     checkpoint: refreshed.checkpoint,
   })
-  return stored.baseline
+  return { baseline: stored.baseline, baselineSeq: stored.baseline_seq }
 })
 
 export const find = Effect.fn("SessionContextEpoch.find")(function* (db: DatabaseService, sessionID: SessionSchema.ID) {
@@ -84,7 +89,6 @@ export const projectInitialized = Effect.fn("SessionContextEpoch.projectInitiali
       baseline: event.data.baseline,
       checkpoint: event.data.checkpoint,
       baseline_seq: seq,
-      replacement_pending: false,
       replacement_seq: null,
       revision: 0,
     })
@@ -99,7 +103,9 @@ export const projectUpdated = Effect.fn("SessionContextEpoch.projectUpdated")(fu
 ) {
   const stored = yield* find(db, event.data.sessionID)
   if (!stored) return yield* Effect.die("Session context epoch is not initialized")
-  if (stored.replacement_pending) return yield* Effect.die("Session context epoch replacement is pending")
+  if (stored.baseline_seq > seq) return yield* Effect.void
+  if (stored.replacement_seq !== null && seq >= stored.replacement_seq)
+    return yield* Effect.die("Session context epoch replacement is pending")
   if (stored.revision > event.data.expectedRevision) {
     if (event.data.parts.length === 0) return yield* Effect.void
     const projected = yield* db
@@ -141,8 +147,9 @@ export const projectReplaced = Effect.fn("SessionContextEpoch.projectReplaced")(
 ) {
   const stored = yield* find(db, event.data.sessionID)
   if (!stored) return yield* Effect.die("Session context epoch is not initialized")
-  if (!stored.replacement_pending) {
-    if (stored.baseline_seq === seq && sameBaseline(stored.baseline, event.data.baseline)) return yield* Effect.void
+  if (stored.baseline_seq > seq) return yield* Effect.void
+  if (stored.baseline_seq === seq && sameBaseline(stored.baseline, event.data.baseline)) return yield* Effect.void
+  if (stored.replacement_seq === null) {
     return yield* Effect.die("Session context epoch replacement was not requested")
   }
   const updated = yield* db
@@ -151,7 +158,6 @@ export const projectReplaced = Effect.fn("SessionContextEpoch.projectReplaced")(
       baseline: event.data.baseline,
       checkpoint: event.data.checkpoint,
       baseline_seq: seq,
-      replacement_pending: false,
       replacement_seq: null,
       revision: event.data.expectedRevision + 1,
     })
@@ -173,12 +179,16 @@ export const requestReplacement = Effect.fn("SessionContextEpoch.requestReplacem
   sessionID: SessionSchema.ID,
   seq: number,
 ) {
-  const stored = yield* find(db, sessionID)
-  if (!stored || stored.baseline_seq >= seq || stored.replacement_seq === seq) return yield* Effect.void
   return yield* db
     .update(SessionContextEpochTable)
-    .set({ replacement_pending: true, replacement_seq: seq, revision: sql`${SessionContextEpochTable.revision} + 1` })
-    .where(eq(SessionContextEpochTable.session_id, sessionID))
+    .set({ replacement_seq: seq, revision: sql`${SessionContextEpochTable.revision} + 1` })
+    .where(
+      and(
+        eq(SessionContextEpochTable.session_id, sessionID),
+        isNull(SessionContextEpochTable.replacement_seq),
+        lt(SessionContextEpochTable.baseline_seq, seq),
+      ),
+    )
     .run()
     .pipe(Effect.orDie)
 })

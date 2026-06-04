@@ -202,7 +202,7 @@ const lowerMessages = Effect.fn("Gemini.lowerMessages")(function* (request: LLMR
 
   for (const [index, message] of request.messages.entries()) {
     if (message.role === "system") {
-      yield* ProviderShared.guardSystemUpdatePlacement("Gemini", request.messages[index - 1])
+      yield* ProviderShared.guardSystemUpdatePlacement("Gemini", request.messages, index)
       const part = yield* ProviderShared.wrappedSystemUpdate("Gemini", message)
       const previous = contents.at(-1)
       if (previous?.role === "user")

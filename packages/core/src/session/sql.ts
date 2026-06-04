@@ -169,7 +169,6 @@ export const SessionContextEpochTable = sqliteTable("session_context_epoch", {
   baseline: text({ mode: "json" }).notNull().$type<ReadonlyArray<SystemContext.Part>>(),
   checkpoint: text({ mode: "json" }).notNull().$type<SystemContext.Checkpoint>(),
   baseline_seq: integer().notNull(),
-  replacement_pending: integer({ mode: "boolean" }).notNull().default(false),
   replacement_seq: integer(),
   revision: integer().notNull().default(0),
 })
@@ -184,8 +183,5 @@ export const SessionContextMessageTable = sqliteTable(
     seq: integer().notNull(),
     parts: text({ mode: "json" }).notNull().$type<ReadonlyArray<SystemContext.Part>>(),
   },
-  (table) => [
-    primaryKey({ columns: [table.session_id, table.seq] }),
-    index("session_context_message_session_seq_idx").on(table.session_id, table.seq),
-  ],
+  (table) => [primaryKey({ columns: [table.session_id, table.seq] })],
 )

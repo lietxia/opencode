@@ -10,7 +10,6 @@ import {
 import { SessionMessage } from "../message"
 import type { FileAttachment } from "../prompt"
 import { SessionContext } from "../context"
-import { SystemContext } from "../../system-context"
 
 const media = (file: FileAttachment): ContentPart => ({
   type: "media",
@@ -134,7 +133,7 @@ function toLLMMessage(message: SessionContext.RunnerMessage, model: Model): Mess
         }),
       ]
     case "system-context":
-      return [Message.system(SystemContext.render(message.parts))]
+      return [Message.system(message.parts.map((part) => ({ type: "text", text: part.text })))]
   }
 }
 

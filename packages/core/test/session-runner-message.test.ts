@@ -91,10 +91,23 @@ describe("toLLMMessages", () => {
   test("maps hidden Session context updates into chronological system messages", () => {
     expect(
       toLLMMessages(
-        [{ type: "system-context", parts: [{ key: SystemContext.Key.make("test/context"), text: "Updated context" }] }],
+        [
+          {
+            type: "system-context",
+            parts: [
+              { key: SystemContext.Key.make("test/context"), text: "Updated context" },
+              { key: SystemContext.Key.make("test/other"), text: "Other context" },
+            ],
+          },
+        ],
         model,
       ),
-    ).toEqual([Message.system("Updated context")])
+    ).toEqual([
+      Message.system([
+        { type: "text", text: "Updated context" },
+        { type: "text", text: "Other context" },
+      ]),
+    ])
   })
 
   test("expands assistant tool calls and settled outcomes into canonical tool messages", () => {

@@ -69,7 +69,6 @@ describe("SystemContext", () => {
         "core/skills": Hash.sha256("Available skills: effect"),
       },
     })
-    expect(SystemContext.render(refreshed.changes)).toBe("The current date is 2026-06-04.\n\nAvailable skills: effect")
   })
 
   test("omits unavailable initial context and admits it after its first successful load", async () => {
@@ -110,6 +109,23 @@ describe("SystemContext", () => {
     const refreshed = SystemContext.refresh(await Effect.runPromise(SystemContext.load(context)), previous)
 
     expect(refreshed).toEqual({ changes: [], checkpoint: previous })
+  })
+
+  test("blocks replacement while admitted context is unavailable", async () => {
+    const previous = { "core/remote-instructions": Hash.sha256("Remote instructions: old") }
+    const snapshot = await Effect.runPromise(
+      SystemContext.load(
+        SystemContext.struct({
+          remote: SystemContext.value({
+            key: key("core/remote-instructions"),
+            load: Effect.succeed(SystemContext.unavailable),
+          }),
+        }),
+      ),
+    )
+
+    expect(SystemContext.replacementBlocked(snapshot, previous)).toBe(true)
+    expect(SystemContext.replacementBlocked(snapshot, {})).toBe(false)
   })
 
   test("emits tombstones and drops checkpoints for removed components", async () => {
@@ -184,5 +200,14 @@ describe("SystemContext", () => {
     expect(decode("core/date")).toBe(key("core/date"))
     expect(() => decode("date")).toThrow()
     expect(() => decode("core/")).toThrow()
+  })
+
+  test("requires namespaced checkpoint keys", () => {
+    const decode = Schema.decodeUnknownSync(SystemContext.CheckpointSchema)
+    const valid = JSON.parse('{"core/date":"hash"}')
+    const invalid = JSON.parse('{"date":"hash"}')
+
+    expect(decode(valid)).toEqual(valid)
+    expect(() => decode(invalid)).toThrow()
   })
 })

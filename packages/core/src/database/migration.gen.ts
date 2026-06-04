@@ -31,9 +31,6 @@ export const migrations = (
     import("./migration/20260603040000_session_message_projection_order"),
     import("./migration/20260603141458_session_input_inbox"),
     import("./migration/20260603160727_jittery_ezekiel_stane"),
-    import("./migration/20260604180746_add_session_context_epoch"),
-    import("./migration/20260604181329_add_session_context_updates"),
-    import("./migration/20260604181706_add_session_context_replacement"),
-    import("./migration/20260604181807_add_session_context_replacement_sequence"),
+    import("./migration/20260604184448_add_session_context_epoch"),
   ])
 ).map((module) => module.default) satisfies DatabaseMigration.Migration[]

@@ -65,12 +65,28 @@ describe("llm schema", () => {
   })
 
   test("rejects chronological system updates between a local tool call and its result", async () => {
-    const previous = Message.assistant([
-      ToolCallPart.make({ id: "call_1", name: "lookup", input: {} }),
-      { type: "text", text: "Waiting." },
-    ])
+    const messages = [
+      Message.assistant([
+        ToolCallPart.make({ id: "call_1", name: "lookup", input: {} }),
+        { type: "text", text: "Waiting." },
+      ]),
+    ]
 
-    await expect(Effect.runPromise(ProviderShared.guardSystemUpdatePlacement("Test", previous))).rejects.toThrow(
+    await expect(Effect.runPromise(ProviderShared.guardSystemUpdatePlacement("Test", messages, 1))).rejects.toThrow(
+      "Test chronological system updates cannot appear between a local tool call and its tool result",
+    )
+  })
+
+  test("rejects chronological system updates between results for multiple local tool calls", async () => {
+    const messages = [
+      Message.assistant([
+        ToolCallPart.make({ id: "call_1", name: "lookup", input: {} }),
+        ToolCallPart.make({ id: "call_2", name: "lookup", input: {} }),
+      ]),
+      Message.tool({ id: "call_1", name: "lookup", result: "first" }),
+    ]
+
+    await expect(Effect.runPromise(ProviderShared.guardSystemUpdatePlacement("Test", messages, 2))).rejects.toThrow(
       "Test chronological system updates cannot appear between a local tool call and its tool result",
     )
   })
