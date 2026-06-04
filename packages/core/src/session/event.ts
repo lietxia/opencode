@@ -9,6 +9,7 @@ import { FileAttachment, Prompt } from "./prompt"
 import { SessionSchema } from "./schema"
 import { Location } from "../location"
 import { RelativePath } from "../schema"
+import { SystemContext } from "../system-context"
 
 export { FileAttachment }
 
@@ -88,6 +89,41 @@ export const Prompted = EventV2.define({
   },
 })
 export type Prompted = typeof Prompted.Type
+
+export const ContextInitialized = EventV2.define({
+  type: "session.next.context.initialized",
+  ...options,
+  schema: {
+    ...Base,
+    baseline: SystemContext.PartsSchema,
+    checkpoint: SystemContext.CheckpointSchema,
+  },
+})
+export type ContextInitialized = typeof ContextInitialized.Type
+
+export const ContextUpdated = EventV2.define({
+  type: "session.next.context.updated",
+  ...options,
+  schema: {
+    ...Base,
+    expectedRevision: NonNegativeInt,
+    parts: SystemContext.PartsSchema,
+    checkpoint: SystemContext.CheckpointSchema,
+  },
+})
+export type ContextUpdated = typeof ContextUpdated.Type
+
+export const ContextReplaced = EventV2.define({
+  type: "session.next.context.replaced",
+  ...options,
+  schema: {
+    ...Base,
+    expectedRevision: NonNegativeInt,
+    baseline: SystemContext.PartsSchema,
+    checkpoint: SystemContext.CheckpointSchema,
+  },
+})
+export type ContextReplaced = typeof ContextReplaced.Type
 
 export const Synthetic = EventV2.define({
   type: "session.next.synthetic",
@@ -402,6 +438,9 @@ const DurableDefinitions = [
   ModelSwitched,
   Moved,
   Prompted,
+  ContextInitialized,
+  ContextUpdated,
+  ContextReplaced,
   Synthetic,
   Shell.Started,
   Shell.Ended,
