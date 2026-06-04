@@ -30,7 +30,7 @@ import { ConfigManaged } from "./managed"
 import { ConfigParse } from "./parse"
 import { ConfigPaths } from "./paths"
 import { ConfigPlugin } from "./plugin"
-import { ConfigVariable } from "./variable"
+import { Substitution } from "@opencode-ai/core/substitution"
 import { Npm } from "@opencode-ai/core/npm"
 import { withTransientReadRetry } from "@/util/effect-http-client"
 
@@ -62,41 +62,47 @@ function normalizeLoadedConfig(data: unknown, source: string) {
   return copy
 }
 
-async function substituteWellKnownRemoteConfig(input: {
+function substituteWellKnownRemoteConfig(input: {
   value: unknown
   dir: string
   source: string
   env: Record<string, string>
+  substitution: Substitution.Interface
 }) {
-  if (!isRecord(input.value) || typeof input.value.url !== "string") return undefined
+  return Effect.gen(function* () {
+    if (!isRecord(input.value) || typeof input.value.url !== "string") return undefined
 
-  const url = await ConfigVariable.substitute({
-    text: input.value.url,
-    type: "virtual",
-    dir: input.dir,
-    source: input.source,
-    env: input.env,
+    const url = yield* input.substitution
+      .substitute({
+        text: input.value.url,
+        type: "virtual",
+        dir: input.dir,
+        source: input.source,
+        env: input.env,
+      })
+      .pipe(Effect.orDie)
+
+    const headers = isRecord(input.value.headers)
+      ? Object.fromEntries(
+          yield* Effect.forEach(
+            Object.entries(input.value.headers).filter((entry): entry is [string, string] => typeof entry[1] === "string"),
+            ([key, value]) =>
+              input.substitution
+                .substitute({
+                  text: value,
+                  type: "virtual",
+                  dir: input.dir,
+                  source: input.source,
+                  env: input.env,
+                })
+                .pipe(Effect.orDie, Effect.map((expanded) => [key, expanded] as const)),
+            { concurrency: "unbounded" },
+          ),
+        )
+      : undefined
+
+    return { url, headers }
   })
-  const headers = isRecord(input.value.headers)
-    ? Object.fromEntries(
-        await Promise.all(
-          Object.entries(input.value.headers)
-            .filter((entry): entry is [string, string] => typeof entry[1] === "string")
-            .map(async ([key, value]) => [
-              key,
-              await ConfigVariable.substitute({
-                text: value,
-                type: "virtual",
-                dir: input.dir,
-                source: input.source,
-                env: input.env,
-              }),
-            ]),
-        ),
-      )
-    : undefined
-
-  return { url, headers }
 }
 
 async function resolveLoadedPlugins<T extends { plugin?: ConfigPluginV1.Spec[] }>(config: T, filepath: string) {
@@ -178,6 +184,7 @@ export const layer = Layer.effect(
   Effect.gen(function* () {
     const fs = yield* FSUtil.Service
     const authSvc = yield* Auth.Service
+    const substitution = yield* Substitution.Service
     const accountSvc = yield* Account.Service
     const env = yield* Env.Service
     const npmSvc = yield* Npm.Service
@@ -208,13 +215,13 @@ export const layer = Layer.effect(
       env?: Record<string, string>,
     ) {
       const source = "path" in options ? options.path : options.source
-      const expanded = yield* Effect.promise(() =>
-        ConfigVariable.substitute(
+      const expanded = yield* substitution
+        .substitute(
           "path" in options
             ? { text, type: "path", path: options.path, env }
             : { text, type: "virtual", ...options, env },
-        ),
-      )
+        )
+        .pipe(Effect.orDie)
       const parsed = ConfigParse.jsonc(expanded, source)
       const data = ConfigParse.schema(ConfigV1.Info, normalizeLoadedConfig(parsed, source), source)
       if (!("path" in options)) return data
@@ -351,14 +358,13 @@ export const layer = Layer.effect(
             const wellknownURL = `${url}/.well-known/opencode`
             log.debug("fetching remote config", { url: wellknownURL })
             const wellknown = yield* fetchRemoteJson(wellknownURL, undefined, ConfigV1.WellKnown)
-            const remote = yield* Effect.promise(() =>
-              substituteWellKnownRemoteConfig({
-                value: wellknown.remote_config,
-                dir: url,
-                source: wellknownURL,
-                env: authEnv,
-              }),
-            )
+            const remote = yield* substituteWellKnownRemoteConfig({
+              value: wellknown.remote_config,
+              dir: url,
+              source: wellknownURL,
+              env: authEnv,
+              substitution,
+            })
             const fetchedConfig = remote
               ? yield* Effect.gen(function* () {
                   log.debug("fetching remote config", { url: remote.url })
@@ -671,6 +677,7 @@ export const defaultLayer = layer.pipe(
   Layer.provide(FSUtil.defaultLayer),
   Layer.provide(Env.defaultLayer),
   Layer.provide(Auth.defaultLayer),
+  Layer.provide(Substitution.defaultLayer),
   Layer.provide(Account.defaultLayer),
   Layer.provide(Npm.defaultLayer),
   Layer.provide(FetchHttpClient.layer),
