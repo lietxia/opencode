@@ -40,16 +40,34 @@ const migrations = await Promise.all(
 )
 console.log(`Loaded ${migrations.length} migrations`)
 
-await Bun.build({
+// Build CLI (full index.ts entry) for Node.js
+const result = await Bun.build({
   target: "node",
-  entrypoints: ["./src/node.ts"],
+  entrypoints: ["./src/index.ts"],
   outdir: "./dist",
   format: "esm",
+  naming: "[dir]/opencode-cli.[ext]",
   conditions: ["node"],
-  external: ["jsonc-parser", "node-pty"],
+  external: [
+    "jsonc-parser",
+    "node-pty",
+    "@opentui/core",
+    "@opentui/solid",
+    "solid-js",
+    "fuzzysort",
+  ],
   define: {
     OPENCODE_MIGRATIONS: JSON.stringify(migrations),
   },
 })
 
-console.log("Build complete")
+if (!result.success) {
+  console.error("Build failed:")
+  for (const log of result.logs) {
+    console.error(log)
+  }
+  process.exit(1)
+}
+
+console.log("CLI Build complete")
+console.log(`Output: ${result.outputs.map(o => o.path).join(", ")}`)

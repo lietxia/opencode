@@ -1,7 +1,6 @@
-import { type SQLiteBunDatabase } from "drizzle-orm/bun-sqlite"
-import { migrate } from "drizzle-orm/bun-sqlite/migrator"
 import { type SQLiteTransaction } from "drizzle-orm/sqlite-core"
 export * from "drizzle-orm"
+import { migrate } from "#db/migrate"
 import { Context } from "../util/context"
 import { lazy } from "../util/lazy"
 import { Global } from "../global"
@@ -37,7 +36,7 @@ export namespace Database {
 
   export type Transaction = SQLiteTransaction<"sync", void>
 
-  type Client = SQLiteBunDatabase
+  type Client = ReturnType<typeof init>
 
   type Journal = { sql: string; timestamp: number; name: string }[]
 

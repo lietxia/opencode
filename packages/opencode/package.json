@@ -32,6 +32,11 @@
       "node": "./src/storage/db.node.ts",
       "default": "./src/storage/db.bun.ts"
     },
+    "#db/migrate": {
+      "bun": "./src/storage/db-migrate.bun.ts",
+      "node": "./src/storage/db-migrate.node.ts",
+      "default": "./src/storage/db-migrate.bun.ts"
+    },
     "#pty": {
       "bun": "./src/pty/pty.bun.ts",
       "node": "./src/pty/pty.node.ts",

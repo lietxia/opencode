@@ -1,6 +1,6 @@
 import { BusEvent } from "@/bus/bus-event"
 import { Bus } from "@/bus"
-import { spawn } from "bun"
+import { spawn as nodeSpawn } from "node:child_process"
 import z from "zod"
 import { NamedError } from "@opencode-ai/util/error"
 import { Log } from "../util/log"
@@ -52,11 +52,11 @@ export namespace Ide {
     const cmd = SUPPORTED_IDES.find((i) => i.name === ide)?.cmd
     if (!cmd) throw new Error(`Unknown IDE: ${ide}`)
 
-    const p = spawn([cmd, "--install-extension", "sst-dev.opencode"], {
+    const p = nodeSpawn(cmd, ["--install-extension", "sst-dev.opencode"], {
       stdout: "pipe",
       stderr: "pipe",
     })
-    await p.exited
+    const exitCode = await new Promise<number>((resolve) => p.on("exit", (code) => resolve(code ?? 1)))
     const stdout = await new Response(p.stdout).text()
     const stderr = await new Response(p.stderr).text()
 
@@ -66,7 +66,7 @@ export namespace Ide {
       stderr,
     })
 
-    if (p.exitCode !== 0) {
+    if (exitCode !== 0) {
       throw new InstallFailedError({ stderr })
     }
     if (stdout.includes("already installed")) {

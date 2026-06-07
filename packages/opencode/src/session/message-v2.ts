@@ -10,7 +10,7 @@ import { Database, eq, desc, inArray } from "@/storage/db"
 import { MessageTable, PartTable } from "./session.sql"
 import { ProviderError } from "@/provider/error"
 import { iife } from "@/util/iife"
-import type { SystemError } from "bun"
+import type { ErrnoException } from "node:os"
 import type { Provider } from "@/provider/provider"
 
 export namespace MessageV2 {
@@ -840,15 +840,15 @@ export namespace MessageV2 {
           },
           { cause: e },
         ).toObject()
-      case (e as SystemError)?.code === "ECONNRESET":
+      case (e as ErrnoException)?.code === "ECONNRESET":
         return new MessageV2.APIError(
           {
             message: "Connection reset by server",
             isRetryable: true,
             metadata: {
-              code: (e as SystemError).code ?? "",
-              syscall: (e as SystemError).syscall ?? "",
-              message: (e as SystemError).message ?? "",
+              code: (e as ErrnoException).code ?? "",
+              syscall: (e as ErrnoException).syscall ?? "",
+              message: (e as ErrnoException).message ?? "",
             },
           },
           { cause: e },

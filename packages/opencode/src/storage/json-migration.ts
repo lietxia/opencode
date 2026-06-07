@@ -1,5 +1,3 @@
-import { Database } from "bun:sqlite"
-import { drizzle } from "drizzle-orm/bun-sqlite"
 import { Global } from "../global"
 import { Log } from "../util/log"
 import { ProjectTable } from "../project/project.sql"
@@ -9,6 +7,22 @@ import path from "path"
 import { existsSync } from "fs"
 import { Filesystem } from "../util/filesystem"
 import { Glob } from "../util/glob"
+
+// Dynamic imports for bun/node compatibility
+const isBun = typeof (globalThis as any).Bun !== "undefined"
+
+async function getDrizzle() {
+  if (isBun) {
+    const mod = await import("drizzle-orm/bun-sqlite")
+    return mod.drizzle
+  }
+  const mod = await import("drizzle-orm/node-sqlite")
+  return mod.drizzle
+}
+
+type SqliteClient = {
+  exec(sql: string): void
+}
 
 export namespace JsonMigration {
   const log = Log.create({ service: "json-migration" })
@@ -23,7 +37,7 @@ export namespace JsonMigration {
     progress?: (event: Progress) => void
   }
 
-  export async function run(sqlite: Database, options?: Options) {
+  export async function run(sqlite: SqliteClient, options?: Options) {
     const storageDir = path.join(Global.Path.data, "storage")
 
     if (!existsSync(storageDir)) {
@@ -43,7 +57,8 @@ export namespace JsonMigration {
     log.info("starting json to sqlite migration", { storageDir })
     const start = performance.now()
 
-    const db = drizzle({ client: sqlite })
+    const drizzleFn = await getDrizzle()
+    const db = drizzleFn({ client: sqlite as any })
 
     // Optimize SQLite for bulk inserts
     sqlite.exec("PRAGMA journal_mode = WAL")
