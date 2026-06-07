@@ -41,24 +41,68 @@ Make OpenCode run on Node.js (specifically for Termux/Android where Bun doesn't 
 - Solid JSX runtime (`jsxDEV`) is missing when running
 - The TUI layer needs either: (a) bundling opentui with the build, or (b) shipping node_modules alongside
 
-### 2. 🟡 Server Mode — Migration Bug (CURRENT)
-Server starts but first request fails with `table 'project' already exists`. The `db-migrate.node.ts` was just updated to check by `name` instead of `hash`, but hasn't been rebuild/tested yet. The previous test used a database created by bun's migrator (which stores empty `hash` values and uses `name` for tracking). The new code should match this pattern but needs verification.
+### 2. ✅ Server Mode — Migration Bug FIXED
+Migration bug resolved. Server starts clean, 8 migrations applied, API returns `[]`. No `table already exists` errors.
 
-### 3. 🟡 Remaining `bun:` Imports in TUI (4 files)
-From the node-pty branch's original code, these still have direct `bun` imports:
-- `autocomplete.tsx` — `import { pathToFileURL } from "bun"` ← already fixed above
-- `dialog-status.tsx` — `import { fileURLToPath } from "bun"` ← already fixed above
-- `ide/index.ts` — `import { spawn } from "bun"` ← already fixed above
-- `message-v2.ts` — `import type { SystemError } from "bun"` ← already fixed above
+### 3. ✅ Remaining `bun:` Imports in TUI — FIXED
+All `bun:` imports in TUI components have been replaced:
+- `autocomplete.tsx` — `import { pathToFileURL } from "node:url"` ✅
+- `dialog-status.tsx` — `import { fileURLToPath } from "node:url"` ✅
+- `ide/index.ts` — `import { spawn } from "node:child_process"` ✅
+- `message-v2.ts` — `import type { ErrnoException } from "node:os"` ✅
 
-BUT: The node-pty branch has different versions of these files. Our fixes are on top of node-pty. Need to verify no other `bun` imports remain in TUI components.
+### 4. ✅ `Bun.stringWidth` — FIXED
+Replaced 3 occurrences with cross-runtime `stringWidth` utility (`src/util/string-width.ts`):
+- `autocomplete.tsx` (2 occurrences)
+- `prompt/index.tsx` (1 occurrence)
+Uses `Bun.stringWidth` when available, falls back to Unicode-based calculation for Node.js.
 
-### 4. 🟡 `win32.ts` — `bun:ffi`
-Only affects Windows, can be skipped for Linux/Termux. The `#pty` conditional import already handles this.
+### 5. ✅ `Bun.stdin.text()` — FIXED
+Replaced in `cli/cmd/run.ts` with Node.js stdin streaming:
+```js
+const chunks: Buffer[] = []
+for await (const chunk of process.stdin) chunks.push(chunk)
+message += "\n" + Buffer.concat(chunks).toString("utf-8")
+```
 
-### 5. 🟡 Other Bun API Usage
-- `Bun.file()`, `Bun.stdin`, `Bun.stderr.escapeHTML` — used in CLI/prompt components
-- These don't block server mode but block full CLI mode
+### 6. ✅ `bun:sqlite` in `cli/cmd/db.ts` — FIXED
+Replaced `import { Database } from "bun:sqlite"` with `import { init as dbInit } from "#db"`. Now uses drizzle's `$client` which resolves to either `bun:sqlite` Database or `node:sqlite` DatabaseSync depending on runtime.
+
+### 7. ✅ Plugin ESM Directory Import — FIXED
+Added `resolvePluginPath()` function in `src/plugin/index.ts` that resolves package.json `main`/`exports` for Node.js ESM compatibility. Node.js ESM doesn't support directory imports; this resolves them to actual file paths.
+- `opencode-anthropic-auth` now loads successfully ✅
+- `oh-my-openagent` fails because it internally uses `bun:` protocol imports (third-party limitation) ⚠️
+
+### 8. ✅ `win32.ts` — `bun:ffi` — FIXED
+Split into conditional imports via `#win32`:
+- `win32.bun.ts` — Original bun:ffi implementation
+- `win32.node.ts` — No-op stubs (Windows FFI can be added later via koffi)
+- All TUI imports (`app.tsx`, `exit.tsx`, `attach.ts`, `thread.ts`) changed from `"./win32"` to `"#win32"`
+- `package.json` imports: `#win32` → bun/node/default branches
+
+### 9. ✅ `json-migration.ts` drizzle-orm/bun-sqlite — FIXED
+Split into conditional imports:
+- `json-migration.bun.ts` — Re-exports `drizzle` from `drizzle-orm/bun-sqlite`
+- `json-migration.node.ts` — Re-exports `drizzle` from `drizzle-orm/node-sqlite`
+- `json-migration.ts` `getDrizzle()` now uses dynamic `import("./json-migration.bun")` / `import("./json-migration.node")` instead of direct `drizzle-orm/bun-sqlite`
+
+### 10. ✅ Server Build — `bun:` Protocol Free
+`dist/node.js` has ZERO `bun:` protocol imports. Only a harmless string literal `bun: 2`.
+
+### 11. 🔴 CLI Build — TUI Still Blocked by `@opentui/core` (bun:ffi dependency)
+CLI build (`opencode-cli.js`) succeeds but contains `bun:ffi` imports from `@opentui/core`.
+`@opentui/core`'s renderer, buffer, editor all depend on `bun:ffi` (FFI to native code for terminal rendering).
+This is a **fundamental blocker** — the TUI framework itself is Bun-only.
+
+**Options:**
+- (a) Accept CLI/TUI only works under Bun runtime
+- (b) Port `@opentui/core` to use Node.js FFI (koffi/node-ffi-napi) — major effort
+- (c) Build a non-TUI CLI mode (headless/REPL) for Node.js
+
+### 12. ✅ Build Scripts — External List Updated
+Both `build-node.ts` and `build-node-cli.ts` now externalize:
+- `drizzle-orm/bun-sqlite`, `drizzle-orm/bun-sqlite/migrator`, `bun:sqlite`, `bun:ffi`
+- `build-node-cli.ts` also includes `@opentui/solid/bun-plugin` for Solid JSX transform
 
 ## Key Architecture Decisions
 
@@ -102,21 +146,34 @@ curl http://127.0.0.1:1338/session
 2. **Native Node.js** — Once CLI build works, use `pkg install nodejs` on Termux and run the Node.js bundle directly (no seccomp issues)
 3. **Future** — Wait for Bun's native Android support (PR #30735 merged, but seccomp issue #30766 still open)
 
-## Files Changed (git status)
+## Files Changed (git status — cumulative)
 
 ```
 M  bun.lock
 M  package.json
 M  packages/opencode/package.json
 M  packages/opencode/script/build-node.ts
+M  packages/opencode/script/build-node-cli.ts
 M  packages/opencode/src/cli/cmd/tui/component/dialog-status.tsx
 M  packages/opencode/src/cli/cmd/tui/component/prompt/autocomplete.tsx
+M  packages/opencode/src/cli/cmd/tui/component/prompt/index.tsx
+M  packages/opencode/src/cli/cmd/tui/app.tsx
+M  packages/opencode/src/cli/cmd/tui/attach.ts
+M  packages/opencode/src/cli/cmd/tui/thread.ts
+M  packages/opencode/src/cli/cmd/tui/context/exit.tsx
+M  packages/opencode/src/cli/cmd/db.ts
+M  packages/opencode/src/cli/cmd/run.ts
 M  packages/opencode/src/ide/index.ts
+M  packages/opencode/src/plugin/index.ts
 M  packages/opencode/src/session/message-v2.ts
 M  packages/opencode/src/storage/db.ts
 M  packages/opencode/src/storage/json-migration.ts
 ?? packages/opencode/script/build-node-cli.ts
 ?? packages/opencode/src/storage/db-migrate.bun.ts
 ?? packages/opencode/src/storage/db-migrate.node.ts
+?? packages/opencode/src/storage/json-migration.bun.ts
 ?? packages/opencode/src/storage/json-migration.node.ts
+?? packages/opencode/src/cli/cmd/tui/win32.bun.ts
+?? packages/opencode/src/cli/cmd/tui/win32.node.ts
+?? packages/opencode/src/util/string-width.ts
 ```
