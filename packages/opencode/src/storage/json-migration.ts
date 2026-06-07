@@ -8,16 +8,18 @@ import { existsSync } from "fs"
 import { Filesystem } from "../util/filesystem"
 import { Glob } from "../util/glob"
 
-// Dynamic imports for bun/node compatibility
+// Use conditional imports to avoid bundling bun-sqlite in Node.js build
 const isBun = typeof (globalThis as any).Bun !== "undefined"
+let _drizzle: any
 
 async function getDrizzle() {
+  if (_drizzle) return _drizzle
   if (isBun) {
-    const mod = await import("drizzle-orm/bun-sqlite")
-    return mod.drizzle
+    _drizzle = (await import("./json-migration.bun")).drizzle
+  } else {
+    _drizzle = (await import("./json-migration.node")).drizzle
   }
-  const mod = await import("drizzle-orm/node-sqlite")
-  return mod.drizzle
+  return _drizzle
 }
 
 type SqliteClient = {
