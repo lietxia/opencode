@@ -342,7 +342,14 @@ export const RunCommand = cmd({
       }
     }
 
-    if (!process.stdin.isTTY) message += "\n" + (await Bun.stdin.text())
+    if (!process.stdin.isTTY) {
+      // Cross-runtime: read stdin as text
+      const chunks: Buffer[] = []
+      for await (const chunk of process.stdin as AsyncIterable<Buffer>) {
+        chunks.push(chunk)
+      }
+      message += "\n" + Buffer.concat(chunks).toString("utf-8")
+    }
 
     if (message.trim().length === 0 && !args.command) {
       UI.error("You must provide a message or a command")

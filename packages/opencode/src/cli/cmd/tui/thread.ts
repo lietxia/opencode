@@ -1,5 +1,4 @@
 import { cmd } from "@/cli/cmd/cmd"
-import { tui } from "./app"
 import { Rpc } from "@/util/rpc"
 import { type rpc } from "./worker"
 import path from "path"
@@ -11,7 +10,7 @@ import { withNetworkOptions, resolveNetworkOptions } from "@/cli/network"
 import { Filesystem } from "@/util/filesystem"
 import type { Event } from "@opencode-ai/sdk/v2"
 import type { EventSource } from "./context/sdk"
-import { win32DisableProcessedInput, win32InstallCtrlCGuard } from "./win32"
+import { win32DisableProcessedInput, win32InstallCtrlCGuard } from "#win32"
 import { TuiConfig } from "@/config/tui"
 import { Instance } from "@/project/instance"
 
@@ -56,10 +55,19 @@ async function target() {
 }
 
 async function input(value?: string) {
-  const piped = process.stdin.isTTY ? undefined : await Bun.stdin.text()
+  const piped = await stdin()
   if (!value) return piped
   if (!piped) return value
   return piped + "\n" + value
+}
+
+async function stdin() {
+  if (process.stdin.isTTY) return
+  const chunks: Buffer[] = []
+  for await (const chunk of process.stdin) {
+    chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk))
+  }
+  return Buffer.concat(chunks).toString("utf8")
 }
 
 export const TuiThreadCommand = cmd({
@@ -199,6 +207,7 @@ export const TuiThreadCommand = cmd({
       }, 1000).unref?.()
 
       try {
+        const { tui } = await import("./app")
         await tui({
           url: transport.url,
           config,

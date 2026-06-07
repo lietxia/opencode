@@ -1,7 +1,6 @@
 import { cmd } from "../cmd"
 import { UI } from "@/cli/ui"
-import { tui } from "./app"
-import { win32DisableProcessedInput, win32InstallCtrlCGuard } from "./win32"
+import { win32DisableProcessedInput, win32InstallCtrlCGuard } from "#win32"
 import { TuiConfig } from "@/config/tui"
 import { Instance } from "@/project/instance"
 import { existsSync } from "fs"
@@ -70,6 +69,7 @@ export const AttachCommand = cmd({
         directory: directory && existsSync(directory) ? directory : process.cwd(),
         fn: () => TuiConfig.get(),
       })
+      const { tui } = await import("./app")
       await tui({
         url: args.url,
         config,

@@ -3,6 +3,7 @@ import { createEffect, createMemo, type JSX, onMount, createSignal, onCleanup, o
 import "opentui-spinner/solid"
 import path from "path"
 import { Filesystem } from "@/util/filesystem"
+import { stringWidth } from "@/util/string-width"
 import { useLocal } from "@tui/context/local"
 import { useTheme } from "@tui/context/theme"
 import { EmptyBorder } from "@tui/component/border"
@@ -327,7 +328,7 @@ export function Prompt(props: PromptProps) {
             parts: updatedNonTextParts,
           })
           restoreExtmarksFromParts(updatedNonTextParts)
-          input.cursorOffset = Bun.stringWidth(content)
+          input.cursorOffset = stringWidth(content)
         },
       },
       {
