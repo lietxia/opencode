@@ -46,7 +46,7 @@ await Bun.build({
   outdir: "./dist",
   format: "esm",
   conditions: ["node"],
-  external: ["jsonc-parser", "node-pty"],
+  external: ["jsonc-parser", "node-pty", "drizzle-orm/bun-sqlite", "drizzle-orm/bun-sqlite/migrator", "bun:sqlite", "bun:ffi"],
   define: {
     OPENCODE_MIGRATIONS: JSON.stringify(migrations),
   },

@@ -9,6 +9,8 @@
     "typecheck": "tsgo --noEmit",
     "test": "bun test --timeout 30000 registry",
     "build": "bun run script/build.ts",
+    "build:node-web": "node script/build-node-web.mjs",
+    "start:node-web": "node dist/node-web/node-web.js",
     "fix-node-pty": "bun run script/fix-node-pty.ts",
     "dev": "bun run --conditions=browser ./src/index.ts",
     "random": "echo 'Random script updated at $(date)' && echo 'Change queued successfully' && echo 'Another change made' && echo 'Yet another change' && echo 'One more change' && echo 'Final change' && echo 'Another final change' && echo 'Yet another final change'",
@@ -41,6 +43,11 @@
       "bun": "./src/pty/pty.bun.ts",
       "node": "./src/pty/pty.node.ts",
       "default": "./src/pty/pty.bun.ts"
+    },
+    "#win32": {
+      "bun": "./src/cli/cmd/tui/win32.bun.ts",
+      "node": "./src/cli/cmd/tui/win32.node.ts",
+      "default": "./src/cli/cmd/tui/win32.bun.ts"
     }
   },
   "devDependencies": {
@@ -65,8 +72,9 @@
     "@types/which": "3.0.4",
     "@types/yargs": "17.0.33",
     "@typescript/native-preview": "catalog:",
-    "effect": "catalog:",
     "drizzle-kit": "catalog:",
+    "effect": "catalog:",
+    "esbuild": "0.28.0",
     "typescript": "catalog:",
     "vscode-languageserver-types": "3.17.5",
     "why-is-node-running": "3.2.2",
@@ -147,6 +155,7 @@
     "remeda": "catalog:",
     "semver": "^7.6.3",
     "solid-js": "catalog:",
+    "string-width": "8.2.1",
     "strip-ansi": "7.1.2",
     "tree-sitter-bash": "0.25.0",
     "turndown": "7.2.0",
@@ -160,6 +169,6 @@
     "zod-to-json-schema": "3.24.5"
   },
   "overrides": {
-    "drizzle-orm": "1.0.0-beta.16-ea816b6"
+    "drizzle-orm": "1.0.0-rc.2"
   }
 }

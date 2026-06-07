@@ -40,21 +40,27 @@ const migrations = await Promise.all(
 )
 console.log(`Loaded ${migrations.length} migrations`)
 
+// Import the Solid JSX transform plugin
+const solidPlugin = (await import("@opentui/solid/bun-plugin")).default
+
 // Build CLI (full index.ts entry) for Node.js
 const result = await Bun.build({
   target: "node",
   entrypoints: ["./src/index.ts"],
   outdir: "./dist",
   format: "esm",
+  splitting: true,
   naming: "[dir]/opencode-cli.[ext]",
   conditions: ["node"],
+  plugins: [solidPlugin],
   external: [
     "jsonc-parser",
     "node-pty",
-    "@opentui/core",
-    "@opentui/solid",
-    "solid-js",
     "fuzzysort",
+    "drizzle-orm/bun-sqlite",
+    "drizzle-orm/bun-sqlite/migrator",
+    "bun:sqlite",
+    "bun:ffi",
   ],
   define: {
     OPENCODE_MIGRATIONS: JSON.stringify(migrations),
