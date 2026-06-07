@@ -2,7 +2,7 @@ import z from "zod"
 import { Identifier } from "../id/id"
 import { Snapshot } from "../snapshot"
 import { MessageV2 } from "./message-v2"
-import { Session } from "."
+import type * as SessionModule from "."
 import { Log } from "../util/log"
 import { Database, eq } from "../storage/db"
 import { MessageTable, PartTable } from "./session.sql"
@@ -10,6 +10,14 @@ import { Storage } from "@/storage/storage"
 import { Bus } from "../bus"
 import { SessionPrompt } from "./prompt"
 import { SessionSummary } from "./summary"
+
+type SessionNS = typeof SessionModule.Session
+
+let _session: SessionNS | undefined
+async function getSession(): Promise<SessionNS> {
+  if (!_session) _session = (await import(".")).Session
+  return _session
+}
 
 export namespace SessionRevert {
   const log = Log.create({ service: "session.revert" })
@@ -23,10 +31,10 @@ export namespace SessionRevert {
 
   export async function revert(input: RevertInput) {
     SessionPrompt.assertNotBusy(input.sessionID)
+    const Session = await getSession()
     const all = await Session.messages({ sessionID: input.sessionID })
     let lastUser: MessageV2.User | undefined
     const session = await Session.get(input.sessionID)
-
     let revert: Session.Info["revert"]
     const patches: Snapshot.Patch[] = []
     for (const msg of all) {
@@ -42,7 +50,6 @@ export namespace SessionRevert {
 
         if (!revert) {
           if ((msg.info.id === input.messageID && !input.partID) || part.id === input.partID) {
-            // if no useful parts left in message, same as reverting whole message
             const partID = remaining.some((item) => ["text", "tool"].includes(item.type)) ? input.partID : undefined
             revert = {
               messageID: !partID && lastUser ? lastUser.id : msg.info.id,
@@ -55,7 +62,6 @@ export namespace SessionRevert {
     }
 
     if (revert) {
-      const session = await Session.get(input.sessionID)
       revert.snapshot = session.revert?.snapshot ?? (await Snapshot.track())
       await Snapshot.revert(patches)
       if (revert.snapshot) revert.diff = await Snapshot.diff(revert.snapshot)
@@ -81,6 +87,7 @@ export namespace SessionRevert {
 
   export async function unrevert(input: { sessionID: string }) {
     log.info("unreverting", input)
+    const Session = await getSession()
     SessionPrompt.assertNotBusy(input.sessionID)
     const session = await Session.get(input.sessionID)
     if (!session.revert) return session
@@ -88,8 +95,9 @@ export namespace SessionRevert {
     return Session.clearRevert(input.sessionID)
   }
 
-  export async function cleanup(session: Session.Info) {
+  export async function cleanup(session: SessionModule.Session.Info) {
     if (!session.revert) return
+    const Session = await getSession()
     const sessionID = session.id
     const msgs = await Session.messages({ sessionID })
     const messageID = session.revert.messageID

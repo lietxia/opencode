@@ -3,7 +3,6 @@ import { Config } from "../config/config"
 import { Bus } from "../bus"
 import { Log } from "../util/log"
 import { createOpencodeClient } from "@opencode-ai/sdk"
-import { Server } from "../server/server"
 import { Npm } from "../npm"
 import { Instance } from "../project/instance"
 import { Flag } from "../flag/flag"
@@ -12,20 +11,69 @@ import { Session } from "../session"
 import { NamedError } from "@opencode-ai/util/error"
 import { CopilotAuthPlugin } from "./copilot"
 import { gitlabAuthPlugin as GitlabAuthPlugin } from "@gitlab/opencode-gitlab-auth"
+import { readFileSync, existsSync } from "fs"
+import { join } from "path"
 
 export namespace Plugin {
   const log = Log.create({ service: "plugin" })
 
   const BUILTIN = ["opencode-anthropic-auth@0.0.13"]
 
+  /**
+   * Resolve a plugin path to an actual file path for Node.js ESM compatibility.
+   * Node.js ESM doesn't support directory imports; we must resolve package.json main/exports.
+   */
+  function resolvePluginPath(pluginPath: string): string {
+    // Already a file URL or file path with extension
+    if (pluginPath.startsWith("file://") || pluginPath.endsWith(".js") || pluginPath.endsWith(".mjs")) {
+      return pluginPath
+    }
+
+    // Try to resolve from package.json
+    const pkgJsonPath = join(pluginPath, "package.json")
+    if (existsSync(pkgJsonPath)) {
+      try {
+        const pkg = JSON.parse(readFileSync(pkgJsonPath, "utf-8"))
+        // Check exports first (modern packages)
+        if (pkg.exports) {
+          const exp = pkg.exports
+          if (typeof exp === "string") return join(pluginPath, exp)
+          if (typeof exp === "object" && exp["."]) {
+            const dot = exp["."]
+            if (typeof dot === "string") return join(pluginPath, dot)
+            if (typeof dot === "object") {
+              // Prefer import > default > require
+              const target = dot.import || dot.default || dot.require
+              if (typeof target === "string") return join(pluginPath, target)
+            }
+          }
+        }
+        // Fall back to main/module
+        const entry = pkg.module || pkg.main
+        if (entry) return join(pluginPath, entry)
+      } catch {
+        // Fall through
+      }
+    }
+
+    // Try common entry files
+    for (const file of ["index.mjs", "index.js", "dist/index.js", "dist/index.mjs"]) {
+      if (existsSync(join(pluginPath, file))) {
+        return join(pluginPath, file)
+      }
+    }
+
+    return pluginPath
+  }
+
   // Built-in plugins that are directly imported (not installed from npm)
   const INTERNAL_PLUGINS: PluginInstance[] = [CodexAuthPlugin, CopilotAuthPlugin, GitlabAuthPlugin]
 
   const state = Instance.state(async () => {
+    const baseUrl = `http://127.0.0.1:${process.env.OPENCODE_PORT ?? 4096}`
     const client = createOpencodeClient({
-      baseUrl: "http://localhost:4096",
+      baseUrl,
       directory: Instance.directory,
-      fetch: async (...args) => Server.Default().fetch(...args),
     })
     log.info("loading config")
     const config = await Config.get()
@@ -78,7 +126,8 @@ export namespace Plugin {
       // Prevent duplicate initialization when plugins export the same function
       // as both a named export and default export (e.g., `export const X` and `export default X`).
       // Object.entries(mod) would return both entries pointing to the same function reference.
-      await import(plugin)
+      const resolvedPath = resolvePluginPath(plugin)
+      await import(resolvedPath)
         .then(async (mod) => {
           const seen = new Set<PluginInstance>()
           for (const [_name, fn] of Object.entries<PluginInstance>(mod)) {
