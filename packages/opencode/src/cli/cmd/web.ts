@@ -3,7 +3,6 @@ import { UI } from "../ui"
 import { cmd } from "./cmd"
 import { withNetworkOptions, resolveNetworkOptions } from "../network"
 import { Flag } from "../../flag/flag"
-import open from "open"
 import { networkInterfaces } from "os"
 
 function getNetworkIPs() {
@@ -68,10 +67,12 @@ export const WebCommand = cmd({
       }
 
       // Open localhost in browser
+      const { default: open } = await import("open")
       open(localhostUrl.toString()).catch(() => {})
     } else {
       const displayUrl = server.url.toString()
       UI.println(UI.Style.TEXT_INFO_BOLD + "  Web interface:    ", UI.Style.TEXT_NORMAL, displayUrl)
+      const { default: open } = await import("open")
       open(displayUrl).catch(() => {})
     }
 

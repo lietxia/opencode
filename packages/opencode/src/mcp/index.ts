@@ -23,7 +23,6 @@ import { McpAuth } from "./auth"
 import { BusEvent } from "../bus/bus-event"
 import { Bus } from "@/bus"
 import { TuiEvent } from "@/cli/cmd/tui/event"
-import open from "open"
 
 export namespace MCP {
   const log = Log.create({ service: "mcp" })
@@ -847,6 +846,7 @@ export namespace MCP {
     const callbackPromise = McpOAuthCallback.waitForCallback(oauthState)
 
     try {
+      const { default: open } = await import("open")
       const subprocess = await open(authorizationUrl)
       // The open package spawns a detached process and returns immediately.
       // We need to listen for errors which fire asynchronously:

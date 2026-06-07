@@ -4,7 +4,7 @@ import { Selection } from "@tui/util/selection"
 import { MouseButton, TextAttributes } from "@opentui/core"
 import { RouteProvider, useRoute } from "@tui/context/route"
 import { Switch, Match, createEffect, untrack, ErrorBoundary, createSignal, onMount, batch, Show, on } from "solid-js"
-import { win32DisableProcessedInput, win32FlushInputBuffer, win32InstallCtrlCGuard } from "./win32"
+import { win32DisableProcessedInput, win32FlushInputBuffer, win32InstallCtrlCGuard } from "#win32"
 import { Installation } from "@/installation"
 import { Flag } from "@/flag/flag"
 import { DialogProvider, useDialog } from "@tui/ui/dialog"
@@ -36,7 +36,6 @@ import { TuiEvent } from "./event"
 import { KVProvider, useKV } from "./context/kv"
 import { Provider } from "@/provider/provider"
 import { ArgsProvider, useArgs, type Args } from "./context/args"
-import open from "open"
 import { writeHeapSnapshot } from "v8"
 import { PromptRefProvider, usePromptRef } from "./context/prompt"
 import { TuiConfigProvider } from "./context/tui-config"
@@ -577,7 +576,8 @@ function App() {
     {
       title: "Open docs",
       value: "docs.open",
-      onSelect: () => {
+      onSelect: async () => {
+        const { default: open } = await import("open")
         open("https://opencode.ai/docs").catch(() => {})
         dialog.clear()
       },

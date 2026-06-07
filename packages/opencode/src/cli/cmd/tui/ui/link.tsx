@@ -1,6 +1,5 @@
 import type { JSX } from "solid-js"
 import type { RGBA } from "@opentui/core"
-import open from "open"
 
 export interface LinkProps {
   href: string
@@ -18,7 +17,8 @@ export function Link(props: LinkProps) {
   return (
     <text
       fg={props.fg}
-      onMouseUp={() => {
+      onMouseUp={async () => {
+        const { default: open } = await import("open")
         open(props.href).catch(() => {})
       }}
     >

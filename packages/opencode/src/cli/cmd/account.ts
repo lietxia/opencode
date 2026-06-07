@@ -5,9 +5,12 @@ import { runtime } from "@/effect/runtime"
 import { AccountID, AccountService, OrgID, PollExpired, type PollResult } from "@/account/service"
 import { type AccountError } from "@/account/schema"
 import * as Prompt from "../effect/prompt"
-import open from "open"
 
-const openBrowser = (url: string) => Effect.promise(() => open(url).catch(() => undefined))
+const openBrowser = (url: string) =>
+  Effect.promise(async () => {
+    const { default: open } = await import("open")
+    return open(url).catch(() => undefined)
+  })
 
 const println = (msg: string) => Effect.sync(() => UI.println(msg))
 
