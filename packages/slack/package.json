@@ -4,16 +4,16 @@
   "type": "module",
   "license": "MIT",
   "scripts": {
-    "dev": "bun run src/index.ts",
+    "dev": "npx tsx src/index.ts",
     "typecheck": "tsgo --noEmit"
   },
   "dependencies": {
-    "@opencode-ai/sdk": "workspace:*",
+    "@opencode-ai/sdk": "*",
     "@slack/bolt": "^3.17.1"
   },
   "devDependencies": {
-    "@types/node": "catalog:",
-    "typescript": "catalog:",
-    "@typescript/native-preview": "catalog:"
+    "@types/node": "24.12.2",
+    "typescript": "5.8.2",
+    "@typescript/native-preview": "7.0.0-dev.20251207.1"
   }
 }

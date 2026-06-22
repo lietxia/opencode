@@ -160,7 +160,7 @@ export const layer = Layer.effect(
             return Server.url ?? new URL("http://localhost:4096")
           },
           // @ts-expect-error
-          $: typeof Bun === "undefined" ? undefined : Bun.$,
+          $: undefined,
         }
 
         for (const plugin of flags.disableDefaultPlugins ? [] : internalPlugins(flags)) {

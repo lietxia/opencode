@@ -1,6 +1,7 @@
-#!/usr/bin/env bun
+#!/usr/bin/env -S node --import tsx
 
-import { $ } from "bun"
+import { $ } from "zx"
+import fs from "node:fs/promises"
 import path from "path"
 import os from "os"
 import { ZenData } from "../src/model"
@@ -12,7 +13,7 @@ const root = path.resolve(process.cwd(), "..", "..", "..")
 const PARTS = 20
 
 // read the secret
-const ret = await $`bun sst secret list --stage ${stage}`.cwd(root).text()
+const ret = await $`npx tsx -e "import('@opencode-ai/script').then(m => m.sst?.secretList?.({stage:'${stage}'}))" 2>/dev/null || bun sst secret list --stage ${stage}`.cwd(root).text()
 const lines = ret.split("\n")
 const values = Array.from({ length: PARTS }, (_, i) => {
   const value = lines
@@ -28,6 +29,6 @@ const values = Array.from({ length: PARTS }, (_, i) => {
 ZenData.validate(JSON.parse(values.join("")))
 
 // update the secret
-const envFile = Bun.file(path.join(os.tmpdir(), `models-${Date.now()}.env`))
-await envFile.write(values.map((v, i) => `ZEN_MODELS${i + 1}="${v.replace(/"/g, '\\"')}"`).join("\n"))
-await $`bun sst secret load ${envFile.name}`.cwd(root)
+const envFilePath = path.join(os.tmpdir(), `models-${Date.now()}.env`)
+await fs.writeFile(envFilePath, values.map((v, i) => `ZEN_MODELS${i + 1}="${v.replace(/"/g, '\\"')}"`).join("\n"))
+await $`npx tsx -e "import('@opencode-ai/script').then(m => m.sst?.secretLoad?.({}))" 2>/dev/null || bun sst secret load ${envFilePath}`.cwd(root)

@@ -55,8 +55,20 @@ async function target() {
   return new URL("../tui/worker.ts", import.meta.url)
 }
 
+async function readStdinText(): Promise<string> {
+  return new Promise<string>((resolve) => {
+    let data = ""
+    process.stdin.setEncoding("utf-8")
+    process.stdin.on("data", (chunk) => {
+      data += chunk
+    })
+    process.stdin.on("end", () => resolve(data))
+    process.stdin.resume()
+  })
+}
+
 async function input(value?: string) {
-  const piped = process.stdin.isTTY ? undefined : await Bun.stdin.text()
+  const piped = process.stdin.isTTY ? undefined : await readStdinText()
   if (!value) return piped
   if (!piped) return value
   return piped + "\n" + value

@@ -1,9 +1,10 @@
-import { $ } from "bun"
+import { execSync } from "node:child_process"
+import fs from "node:fs/promises"
 import semver from "semver"
 import path from "path"
 
 const rootPkgPath = path.resolve(import.meta.dir, "../../../package.json")
-const rootPkg = await Bun.file(rootPkgPath).json()
+const rootPkg = JSON.parse(await fs.readFile(rootPkgPath, "utf-8"))
 const expectedBunVersion = rootPkg.packageManager?.split("@")[1]
 
 if (!expectedBunVersion) {
@@ -27,7 +28,7 @@ const CHANNEL = await (async () => {
   if (env.OPENCODE_CHANNEL) return env.OPENCODE_CHANNEL
   if (env.OPENCODE_BUMP) return "latest"
   if (env.OPENCODE_VERSION && !env.OPENCODE_VERSION.startsWith("0.0.0-")) return "latest"
-  return await $`git branch --show-current`.text().then((x) => x.trim())
+  return await execSync("git branch --show-current", { encoding: "utf-8" }).trim()
 })()
 const IS_PREVIEW = CHANNEL !== "latest"
 
@@ -50,8 +51,7 @@ const VERSION = await (async () => {
 const bot = ["actions-user", "opencode", "opencode-agent[bot]"]
 const teamPath = path.resolve(import.meta.dir, "../../../.github/TEAM_MEMBERS")
 const team = [
-  ...(await Bun.file(teamPath)
-    .text()
+  ...(await fs.readFile(teamPath, "utf-8")
     .then((x) => x.split(/\r?\n/).map((x) => x.trim()))
     .then((x) => x.filter((x) => x && !x.startsWith("#")))),
   ...bot,

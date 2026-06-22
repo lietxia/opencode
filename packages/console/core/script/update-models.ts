@@ -1,12 +1,13 @@
-#!/usr/bin/env bun
+#!/usr/bin/env -S node --import tsx
 
-import { $ } from "bun"
+import { $ } from "zx"
+import fs from "node:fs/promises"
 import path from "path"
 import os from "os"
 import { ZenData } from "../src/model"
 
 const root = path.resolve(process.cwd(), "..", "..", "..")
-const models = await $`bun sst secret list --stage frank`.cwd(root).text()
+const models = await $`npx tsx -e "import('@opencode-ai/script').then(m => m.sst?.secretList?.({stage:'frank'}))" 2>/dev/null || bun sst secret list --stage frank`.cwd(root).text()
 const PARTS = 30
 
 // read the line starting with "ZEN_MODELS"
@@ -23,13 +24,13 @@ const oldValues = Array.from({ length: PARTS }, (_, i) => {
 
 // store the prettified json to a temp file
 const filename = `models-${Date.now()}.json`
-const tempFile = Bun.file(path.join(os.tmpdir(), filename))
-await tempFile.write(JSON.stringify(JSON.parse(oldValues.join("")), null, 2))
-console.log("tempFile", tempFile.name)
+const tempFilePath = path.join(os.tmpdir(), filename)
+await fs.writeFile(tempFilePath, JSON.stringify(JSON.parse(oldValues.join("")), null, 2))
+console.log("tempFile", tempFilePath)
 
 // open temp file in vim and read the file on close
-await $`vim ${tempFile.name}`
-const newValue = JSON.stringify(JSON.parse(await tempFile.text()))
+await $`vim ${tempFilePath}`
+const newValue = JSON.stringify(JSON.parse(await fs.readFile(tempFilePath, "utf-8")))
 ZenData.validate(JSON.parse(newValue))
 
 // update the secret
@@ -38,6 +39,6 @@ const newValues = Array.from({ length: PARTS }, (_, i) =>
   newValue.slice(chunk * i, i === PARTS - 1 ? undefined : chunk * (i + 1)),
 )
 
-const envFile = Bun.file(path.join(os.tmpdir(), `models-${Date.now()}.env`))
-await envFile.write(newValues.map((v, i) => `ZEN_MODELS${i + 1}="${v.replace(/"/g, '\\"')}"`).join("\n"))
-await $`bun sst secret load ${envFile.name} --stage frank`.cwd(root)
+const envFilePath = path.join(os.tmpdir(), `models-${Date.now()}.env`)
+await fs.writeFile(envFilePath, newValues.map((v, i) => `ZEN_MODELS${i + 1}="${v.replace(/"/g, '\\"')}"`).join("\n"))
+await $`npx tsx -e "import('@opencode-ai/script').then(m => m.sst?.secretLoad?.({stage:'frank'}))" 2>/dev/null || bun sst secret load ${envFilePath} --stage frank`.cwd(root)

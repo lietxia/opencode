@@ -1,5 +1,5 @@
 import type { BoxRenderable, TextareaRenderable, ScrollBoxRenderable } from "@opentui/core"
-import { pathToFileURL } from "bun"
+import { pathToFileURL } from "url"
 import fuzzysort from "fuzzysort"
 import path from "path"
 import { firstBy } from "remeda"
@@ -20,7 +20,7 @@ import { Locale } from "../../util/locale"
 import type { PromptInfo } from "../../prompt/history"
 import { useFrecency } from "../../prompt/frecency"
 import { useBindings, useCommandSlashes, useOpencodeModeStack } from "../../keymap"
-import { displayCharAt, mentionTriggerIndex } from "../../prompt/display"
+import { displayCharAt, mentionTriggerIndex, stringWidth } from "../../prompt/display"
 
 function removeLineRange(input: string) {
   const hashIndex = input.lastIndexOf("#")
@@ -184,7 +184,7 @@ export function Autocomplete(props: {
 
     const virtualText = "@" + text
     const extmarkStart = store.index
-    const extmarkEnd = extmarkStart + Bun.stringWidth(virtualText)
+    const extmarkEnd = extmarkStart + stringWidth(virtualText)
 
     const styleId = part.type === "file" ? props.fileStyleId : part.type === "agent" ? props.agentStyleId : undefined
 
@@ -447,7 +447,7 @@ export function Autocomplete(props: {
           const cursor = props.input().logicalCursor
           props.input().deleteRange(0, 0, cursor.row, cursor.col)
           props.input().insertText(newText)
-          props.input().cursorOffset = Bun.stringWidth(newText)
+          props.input().cursorOffset = stringWidth(newText)
         },
       })
     }

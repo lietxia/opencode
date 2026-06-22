@@ -1,8 +1,11 @@
-#!/usr/bin/env bun
-import { $ } from "bun"
+#!/usr/bin/env -S node --import tsx
+import { $ } from "zx"
+import fs from "node:fs/promises"
+import path from "node:path"
 import pkg from "../package.json"
 import { Script } from "@opencode-ai/script"
 import { fileURLToPath } from "url"
+import { glob } from "glob"
 
 const dir = fileURLToPath(new URL("..", import.meta.url))
 process.chdir(dir)
@@ -19,14 +22,15 @@ async function publish(dir: string, name: string, version: string) {
     console.log(`already published ${name}@${version}`)
     return
   }
-  await $`bun pm pack`.cwd(dir)
+  await $`npm pack`.cwd(dir)
   await $`npm publish *.tgz --access public --tag ${Script.channel}`.cwd(dir)
 }
 
 const binaries: Record<string, string> = {}
-for (const filepath of new Bun.Glob("*/package.json").scanSync({ cwd: "./dist" })) {
-  const pkg = await Bun.file(`./dist/${filepath}`).json()
-  binaries[pkg.name] = pkg.version
+for (const filepath of await glob("*/package.json", { cwd: "./dist" })) {
+  const content = await fs.readFile(`./dist/${filepath}`, "utf-8")
+  const item = JSON.parse(content)
+  binaries[item.name] = item.version
 }
 console.log("binaries", binaries)
 const version = Object.values(binaries)[0]
@@ -34,8 +38,11 @@ const version = Object.values(binaries)[0]
 await $`mkdir -p ./dist/${pkg.name}`
 await $`mkdir -p ./dist/${pkg.name}/bin`
 await $`cp ./script/postinstall.mjs ./dist/${pkg.name}/postinstall.mjs`
-await Bun.file(`./dist/${pkg.name}/LICENSE`).write(await Bun.file("../../LICENSE").text())
-await Bun.file(`./dist/${pkg.name}/bin/${pkg.name}.exe`).write(
+const licenseText = await fs.readFile("../../LICENSE", "utf-8")
+await fs.mkdir(path.dirname(`./dist/${pkg.name}/LICENSE`), { recursive: true })
+await fs.writeFile(`./dist/${pkg.name}/LICENSE`, licenseText)
+await fs.writeFile(
+  `./dist/${pkg.name}/bin/${pkg.name}.exe`,
   [
     `echo "Error: ${pkg.name}-ai's postinstall script was not run." >&2`,
     'echo "" >&2',
@@ -51,7 +58,8 @@ await Bun.file(`./dist/${pkg.name}/bin/${pkg.name}.exe`).write(
   ].join("\n"),
 )
 
-await Bun.file(`./dist/${pkg.name}/package.json`).write(
+await fs.writeFile(
+  `./dist/${pkg.name}/package.json`,
   JSON.stringify(
     {
       name: pkg.name + "-ai",
@@ -130,7 +138,7 @@ if (!Script.preview) {
         await $`rm -rf ./dist/aur-${pkg}`
         await $`git clone ssh://aur@aur.archlinux.org/${pkg}.git ./dist/aur-${pkg}`
         await $`cd ./dist/aur-${pkg} && git checkout master`
-        await Bun.file(`./dist/aur-${pkg}/PKGBUILD`).write(pkgbuild)
+        await fs.writeFile(`./dist/aur-${pkg}/PKGBUILD`, pkgbuild)
         await $`cd ./dist/aur-${pkg} && makepkg --printsrcinfo > .SRCINFO`
         await $`cd ./dist/aur-${pkg} && git add PKGBUILD .SRCINFO`
         if ((await $`cd ./dist/aur-${pkg} && git diff --cached --quiet`.nothrow()).exitCode === 0) break
@@ -204,7 +212,7 @@ if (!Script.preview) {
   const tap = `https://x-access-token:${token}@github.com/anomalyco/homebrew-tap.git`
   await $`rm -rf ./dist/homebrew-tap`
   await $`git clone ${tap} ./dist/homebrew-tap`
-  await Bun.file("./dist/homebrew-tap/opencode.rb").write(homebrewFormula)
+  await fs.writeFile("./dist/homebrew-tap/opencode.rb", homebrewFormula)
   await $`cd ./dist/homebrew-tap && git add opencode.rb`
   if ((await $`cd ./dist/homebrew-tap && git diff --cached --quiet`.nothrow()).exitCode !== 0) {
     await $`cd ./dist/homebrew-tap && git commit -m "Update to v${Script.version}"`

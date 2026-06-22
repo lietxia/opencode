@@ -6,7 +6,6 @@
     "semver": "^7.6.3"
   },
   "devDependencies": {
-    "@types/bun": "catalog:",
     "@types/semver": "^7.5.8"
   },
   "exports": {

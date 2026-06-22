@@ -17,28 +17,27 @@
   },
   "scripts": {
     "db:generate": "drizzle-kit generate --config=drizzle.config.ts",
-    "db:check-unique-users": "bun src/ensure-unique-users.ts --check",
-    "db:ensure-unique-users": "bun src/ensure-unique-users.ts",
-    "db:migrate": "bun src/migrate.ts",
+    "db:check-unique-users": "npx tsx src/ensure-unique-users.ts --check",
+    "db:ensure-unique-users": "npx tsx src/ensure-unique-users.ts",
+    "db:migrate": "npx tsx src/migrate.ts",
     "db:push": "drizzle-kit push --config=drizzle.config.ts",
     "db:studio": "drizzle-kit studio --config=drizzle.config.ts",
-    "honeycomb:backfill": "bun src/honeycomb-backfill.ts",
+    "honeycomb:backfill": "npx tsx src/honeycomb-backfill.ts",
     "typecheck": "tsgo --noEmit"
   },
   "dependencies": {
     "@aws-sdk/client-athena": "3.933.0",
     "@planetscale/database": "1.19.0",
-    "drizzle-orm": "catalog:",
-    "effect": "catalog:",
-    "sst": "catalog:"
+    "drizzle-orm": "1.0.0-rc.2",
+    "effect": "4.0.0-beta.83",
+    "sst": "4.13.1"
   },
   "devDependencies": {
-    "@tsconfig/node22": "catalog:",
-    "@types/bun": "catalog:",
-    "@types/node": "catalog:",
-    "@typescript/native-preview": "catalog:",
-    "drizzle-kit": "catalog:",
-    "typescript": "catalog:"
+    "@tsconfig/node22": "22.0.2",
+    "@types/node": "24.12.2",
+    "@typescript/native-preview": "7.0.0-dev.20251207.1",
+    "drizzle-kit": "1.0.0-rc.2",
+    "typescript": "5.8.2"
   },
   "engines": {
     "node": ">=22"

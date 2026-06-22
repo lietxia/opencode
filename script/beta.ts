@@ -1,6 +1,6 @@
-#!/usr/bin/env bun
+#!/usr/bin/env -S node --import tsx
 
-import { $ } from "bun"
+import { $ } from "zx"
 import fs from "fs/promises"
 
 const model = "opencode/gpt-5.3-codex"
@@ -74,7 +74,7 @@ async function typecheck() {
   console.log("  Running typecheck...")
 
   try {
-    await $`bun typecheck`
+    await $`npx tsx -e "import {Typecheck} from './packages/opencode/src/typecheck'; Typecheck.run()" 2>/dev/null || bun typecheck`
     return true
   } catch (err) {
     console.log(`Typecheck failed: ${err}`)
@@ -86,7 +86,7 @@ async function build() {
   console.log("  Running final build smoke check...")
 
   try {
-    await $`./script/build.ts --single`.cwd("packages/opencode")
+    await $`npx tsx ./script/build.ts --single`.cwd("packages/opencode")
     return true
   } catch (err) {
     console.log(`Build failed: ${err}`)
@@ -132,7 +132,7 @@ async function install() {
 
   try {
     await fs.rm("bun.lock", { force: true })
-    await $`bun install`
+    await $`npm install`
     await $`git add bun.lock`
     return true
   } catch (err) {

@@ -1,11 +1,12 @@
-#!/usr/bin/env bun
+#!/usr/bin/env -S node --import tsx
 
-import { $ } from "bun"
+import { $ } from "zx"
+import fs from "node:fs/promises"
 import path from "node:path"
 import { parseArgs } from "node:util"
 
 const { values } = parseArgs({
-  args: Bun.argv.slice(2),
+  args: process.argv.slice(2),
   options: {
     "dry-run": { type: "boolean", default: false },
   },
@@ -93,9 +94,10 @@ function parse(text: string): Yml {
 }
 
 async function read(sub: string, file: string) {
-  const item = Bun.file(path.join(root, sub, file))
-  if (!(await item.exists())) return undefined
-  return parse(await item.text())
+  const filePath = path.join(root, sub, file)
+  const exists = await fs.access(filePath).then(() => true, () => false)
+  if (!exists) return undefined
+  return parse(await fs.readFile(filePath, "utf-8"))
 }
 
 function pick(list: Item[], exts: string[]) {
@@ -125,11 +127,13 @@ async function sign(url: string, key: string) {
 
   const tmp = process.env.RUNNER_TEMP ?? "/tmp"
   const file = path.join(tmp, name)
-  await Bun.write(file, await res.arrayBuffer())
-  await $`bunx @tauri-apps/cli signer sign ${file}`
-  const sigFile = Bun.file(`${file}.sig`)
-  if (!(await sigFile.exists())) throw new Error(`Signature file not found for ${name}`)
-  return (await sigFile.text()).trim()
+  await fs.mkdir(path.dirname(file), { recursive: true })
+  await fs.writeFile(file, Buffer.from(await res.arrayBuffer()))
+  await $`npx @tauri-apps/cli signer sign ${file}`
+  const sigFilePath = `${file}.sig`
+  const sigExists = await fs.access(sigFilePath).then(() => true, () => false)
+  if (!sigExists) throw new Error(`Signature file not found for ${name}`)
+  return (await fs.readFile(sigFilePath, "utf-8")).trim()
 }
 
 const add = async (data: Record<string, { url: string; signature: string }>, key: string, raw: string | undefined) => {
@@ -206,7 +210,8 @@ const data = {
 
 const tmp = process.env.RUNNER_TEMP ?? "/tmp"
 const file = path.join(tmp, "latest.json")
-await Bun.write(file, JSON.stringify(data, null, 2))
+await fs.mkdir(path.dirname(file), { recursive: true })
+await fs.writeFile(file, JSON.stringify(data, null, 2))
 
 const tag = `v${version}`
 

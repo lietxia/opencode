@@ -1,13 +1,14 @@
 import { Database, and, eq, inArray, isNotNull, sql } from "../src/drizzle/index.js"
 import { BillingTable, BlackPlans, SubscriptionTable, UsageTable } from "../src/schema/billing.sql.js"
+import fs from "node:fs/promises"
 
 if (process.argv.length < 3) {
-  console.error("Usage: bun black-stats.ts <plan>")
+  console.error("Usage: npx tsx black-stats.ts <plan>")
   process.exit(1)
 }
 const plan = process.argv[2] as (typeof BlackPlans)[number]
 if (!BlackPlans.includes(plan)) {
-  console.error("Usage: bun black-stats.ts <plan>")
+  console.error("Usage: npx tsx black-stats.ts <plan>")
   process.exit(1)
 }
 const cutoff = new Date(Date.UTC(2026, 1, 0, 23, 59, 59, 999))
@@ -264,9 +265,8 @@ for (const row of rows) {
   lines.push(cells.map(csvCell).join(","))
 }
 const output = `${lines.join("\n")}\n`
-const file = Bun.file(`black-stats-${plan}.csv`)
-await file.write(output)
-console.log(`Wrote ${lines.length - 1} rows to ${file.name}`)
+await fs.writeFile(`black-stats-${plan}.csv`, output)
+console.log(`Wrote ${lines.length - 1} rows to black-stats-${plan}.csv`)
 const total = rows.reduce((sum, row) => sum + row.amount, 0)
 const average = rows.length === 0 ? 0 : total / rows.length
 console.log(`Average spending per user: ${formatMicroCents(average)}`)
@@ -308,5 +308,5 @@ function toNumber(value: unknown) {
 function csvCell(value: string | number) {
   const text = String(value)
   if (!/[",\n]/.test(text)) return text
-  return `"${text.replace(/"/g, '""')}"`
+  return `"${text.replace(/"/g, '""')}`
 }

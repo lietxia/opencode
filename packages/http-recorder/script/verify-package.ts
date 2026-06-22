@@ -1,12 +1,13 @@
-#!/usr/bin/env bun
-import { mkdtemp, rm, writeFile } from "node:fs/promises"
+#!/usr/bin/env -S node --import tsx
+import { mkdtemp, rm, writeFile, unlink } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import path from "node:path"
+import { spawn } from "node:child_process"
 import { pack } from "./pack.js"
 
 const run = async (command: ReadonlyArray<string>, cwd: string) => {
-  const process = Bun.spawn(command, { cwd, env: globalThis.process.env, stdout: "inherit", stderr: "inherit" })
-  const exitCode = await process.exited
+  const proc = spawn(command[0], command.slice(1), { cwd, env: { ...process.env }, stdio: "inherit" })
+  const exitCode = await new Promise<number>((resolve) => { proc.on("close", resolve) })
   if (exitCode !== 0) throw new Error(`${command.join(" ")} exited with code ${exitCode}`)
 }
 
@@ -70,6 +71,6 @@ if (import.meta.main) {
   try {
     await verifyPackage(archive)
   } finally {
-    await Bun.file(archive).delete()
+    await unlink(archive)
   }
 }

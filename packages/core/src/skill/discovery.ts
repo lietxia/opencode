@@ -2,6 +2,7 @@ export * as SkillDiscovery from "./discovery"
 
 import path from "path"
 import { Context, Effect, Layer, Schedule, Schema } from "effect"
+import { createHash } from "node:crypto"
 import { FetchHttpClient, HttpClient, HttpClientRequest, HttpClientResponse } from "effect/unstable/http"
 import { FSUtil } from "../fs-util"
 import { Global } from "../global"
@@ -104,7 +105,7 @@ export const layer = Layer.effect(
         )
         if (!data) return []
 
-        const sourceRoot = path.resolve(global.cache, "skills", Bun.hash(base).toString(16))
+        const sourceRoot = path.resolve(global.cache, "skills", createHash("sha256").update(base).digest("hex"))
         return yield* Effect.forEach(
           data.skills.flatMap((skill) => {
             if (!isSafeSegment(skill.name)) {

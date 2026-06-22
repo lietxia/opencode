@@ -6,7 +6,7 @@
   "license": "MIT",
   "private": true,
   "scripts": {
-    "test": "bun test --timeout 30000 --only-failures",
+    "test": "npm test --timeout 30000 --only-failures",
     "typecheck": "tsgo --noEmit"
   },
   "exports": {
@@ -16,13 +16,12 @@
     "./sqlite-core/effect": "./src/sqlite-core/effect/index.ts"
   },
   "devDependencies": {
-    "@effect/sql-sqlite-bun": "catalog:",
-    "@tsconfig/bun": "catalog:",
-    "@types/bun": "catalog:",
-    "@typescript/native-preview": "catalog:"
+    "@effect/sql-sqlite-node": "4.0.0-beta.83",
+    "@tsconfig/node22": "22.0.2",
+    "@typescript/native-preview": "7.0.0-dev.20251207.1"
   },
   "dependencies": {
-    "drizzle-orm": "catalog:",
-    "effect": "catalog:"
+    "drizzle-orm": "1.0.0-rc.2",
+    "effect": "4.0.0-beta.83"
   }
 }

@@ -1,4 +1,5 @@
 import path from "path"
+import fs from "node:fs/promises"
 import { fileURLToPath } from "url"
 
 const __filename = fileURLToPath(import.meta.url)
@@ -9,6 +10,6 @@ process.chdir(dir)
 
 const modelsUrl = process.env.OPENCODE_MODELS_URL || "https://models.dev"
 export const modelsData = process.env.MODELS_DEV_API_JSON
-  ? await Bun.file(process.env.MODELS_DEV_API_JSON).text()
+  ? await fs.readFile(process.env.MODELS_DEV_API_JSON, "utf-8")
   : await fetch(`${modelsUrl}/api.json`).then((x) => x.text())
 console.log("Loaded models.dev snapshot")

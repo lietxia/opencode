@@ -1,4 +1,5 @@
 import { Client } from "@planetscale/database"
+import fs from "node:fs/promises"
 import { readdir } from "node:fs/promises"
 import path from "node:path"
 import { drizzle } from "drizzle-orm/planetscale-serverless"
@@ -706,7 +707,7 @@ function parseWeek(row: RawRow) {
 }
 
 async function readRows(file: string) {
-  const text = await Bun.file(file).text()
+  const text = await fs.readFile(file, "utf-8")
   if (file.toLowerCase().endsWith(".json")) {
     const parsed: unknown = JSON.parse(text)
     return rowsFromJson(parsed)

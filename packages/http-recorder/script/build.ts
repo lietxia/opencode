@@ -1,18 +1,24 @@
-#!/usr/bin/env bun
-import { $ } from "bun"
+#!/usr/bin/env -S node --import tsx
+import { $ } from "zx"
 import { readdir, rm } from "node:fs/promises"
+import esbuild from "esbuild"
 
 await rm("dist", { recursive: true, force: true })
-await $`bunx tsc --emitDeclarationOnly`
+await $`npx tsc --emitDeclarationOnly`
 
-const build = await Bun.build({
-  entrypoints: ["src/index.ts"],
+const build = await esbuild.build({
+  entryPoints: ["src/index.ts"],
   outdir: "dist",
   target: "node",
   format: "esm",
   packages: "external",
+  bundle: true,
 })
-if (!build.success) throw new AggregateError(build.logs, "Failed to build @opencode-ai/http-recorder")
+if (!build.errors.length && !build.warnings.length) {
+  // success
+} else if (build.errors.length > 0) {
+  throw new AggregateError(build.errors, "Failed to build @opencode-ai/http-recorder")
+}
 
 const publicFiles = new Set(["index.js", "index.d.ts", "effect.d.ts", "socket.d.ts", "types.d.ts"])
 await Promise.all(

@@ -1,4 +1,4 @@
-#!/usr/bin/env bun
+#!/usr/bin/env -S node --import tsx
 
 import { NodeFileSystem } from "@effect/platform-node"
 import * as path from "node:path"
@@ -326,7 +326,7 @@ const upsertEnv = (contents: string, values: Env) => {
   const prefix = lines.join("\n").trimEnd()
   const block = [
     "",
-    "# Added by bun run setup:recording-env",
+    "# Added by npx tsx run setup:recording-env",
     ...missing.map((name) => `${name}=${quote(values[name])}`),
   ].join("\n")
   return `${prefix}${block}\n`

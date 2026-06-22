@@ -1,0 +1,19 @@
+name: "Setup Node"
+description: "Setup Node.js with npm caching and install dependencies"
+inputs:
+  node-version:
+    description: "Node.js version"
+    required: false
+    default: "22"
+runs:
+  using: "composite"
+  steps:
+    - name: Setup Node.js
+      uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+      with:
+        node-version: ${{ inputs.node-version }}
+        cache: "npm"
+
+    - name: Install dependencies
+      run: npm install --legacy-peer-deps --force --ignore-scripts
+      shell: bash

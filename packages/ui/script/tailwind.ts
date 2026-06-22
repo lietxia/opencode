@@ -1,6 +1,9 @@
-#!/usr/bin/env bun
+#!/usr/bin/env -S node --import tsx
 
-const colors = await Bun.file(import.meta.dir + "/colors.txt").text()
+import fs from "node:fs/promises"
+import path from "node:path"
+
+const colors = await fs.readFile(path.join(import.meta.dirname, "colors.txt"), "utf-8")
 
 const variables = []
 for (const line of colors.split("\n")) {
@@ -20,4 +23,5 @@ const output = `
 }
 `
 
-await Bun.file(import.meta.dir + "/../src/styles/tailwind/colors.css").write(output.trim())
+await fs.mkdir(path.join(import.meta.dirname, "../src/styles/tailwind"), { recursive: true })
+await fs.writeFile(path.join(import.meta.dirname, "../src/styles/tailwind/colors.css"), output.trim())

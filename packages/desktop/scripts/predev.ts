@@ -1,5 +1,5 @@
-import { $ } from "bun"
+import { $ } from "zx"
 
-await $`bun ./scripts/copy-icons.ts ${process.env.OPENCODE_CHANNEL ?? "dev"}`
+await $`npx tsx ./scripts/copy-icons.ts ${process.env.OPENCODE_CHANNEL ?? "dev"}`
 
-await $`cd ../opencode && bun script/build-node.ts`
+await $`cd ../opencode && npx tsx script/build-node.ts`

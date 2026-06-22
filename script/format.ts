@@ -1,5 +1,5 @@
-#!/usr/bin/env bun
+#!/usr/bin/env -S node --import tsx
 
-import { $ } from "bun"
+import { $ } from "zx"
 
-await $`bun run prettier --ignore-unknown --write .`
+await $`npx prettier --ignore-unknown --write .`

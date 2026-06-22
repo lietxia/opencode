@@ -24,6 +24,18 @@ import { createOpencodeClient, type OpencodeClient, type ToolPart } from "@openc
 import { FormatError, FormatUnknownError } from "../error"
 import { INTERACTIVE_INPUT_ERROR, resolveInteractiveStdin } from "./run/runtime.stdin"
 
+async function readStdinText(): Promise<string> {
+  return new Promise<string>((resolve) => {
+    let data = ""
+    process.stdin.setEncoding("utf-8")
+    process.stdin.on("data", (chunk) => {
+      data += chunk
+    })
+    process.stdin.on("end", () => resolve(data))
+    process.stdin.resume()
+  })
+}
+
 type ModelInput = Parameters<OpencodeClient["session"]["prompt"]>[0]["model"]
 
 function pick(value: string | undefined): ModelInput | undefined {
@@ -348,7 +360,7 @@ export const RunCommand = effectCmd({
         }
       }
 
-      const piped = process.stdin.isTTY ? undefined : await Bun.stdin.text()
+      const piped = process.stdin.isTTY ? undefined : await readStdinText()
       message = resolveRunInput(message, piped) ?? ""
       const initialInput = resolveRunInput(rawMessage, piped)
 

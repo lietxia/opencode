@@ -1,4 +1,4 @@
-#!/usr/bin/env bun
+#!/usr/bin/env -S node --import tsx
 
 const repo = "anomalyco/opencode"
 const days = 60

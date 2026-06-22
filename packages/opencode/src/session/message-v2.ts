@@ -35,7 +35,6 @@ import { ProviderError } from "@/provider/error"
 import { iife } from "@/util/iife"
 import { errorMessage } from "@/util/error"
 import { isMedia } from "@/util/media"
-import type { SystemError } from "bun"
 import type { Provider } from "@/provider/provider"
 import { Effect, Schema } from "effect"
 
@@ -46,6 +45,12 @@ interface FetchDecompressionError extends Error {
   code: "ZlibError"
   errno: number
   path: string
+}
+
+/** Node.js system error with errno-style code and syscall */
+interface NodeSystemError extends Error {
+  code?: string
+  syscall?: string
 }
 
 export const SYNTHETIC_ATTACHMENT_PROMPT = "Attached media from tool result:"
@@ -636,15 +641,15 @@ export function fromError(
         },
         { cause: e },
       ).toObject()
-    case (e as SystemError)?.code === "ECONNRESET":
+    case (e as NodeSystemError)?.code === "ECONNRESET":
       return new APIError(
         {
           message: "Connection reset by server",
           isRetryable: true,
           metadata: {
-            code: (e as SystemError).code ?? "",
-            syscall: (e as SystemError).syscall ?? "",
-            message: (e as SystemError).message ?? "",
+            code: (e as NodeSystemError).code ?? "",
+            syscall: (e as NodeSystemError).syscall ?? "",
+            message: (e as NodeSystemError).message ?? "",
           },
         },
         { cause: e },

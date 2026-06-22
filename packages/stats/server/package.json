@@ -10,22 +10,21 @@
     ".": "./src/server.ts"
   },
   "scripts": {
-    "start": "bun src/server.ts",
+    "start": "npx tsx src/server.ts",
     "typecheck": "tsgo --noEmit"
   },
   "dependencies": {
     "@aws-sdk/client-firehose": "3.933.0",
-    "@effect/platform-node": "catalog:",
-    "@opencode-ai/stats-core": "workspace:*",
-    "effect": "catalog:",
-    "sst": "catalog:"
+    "@effect/platform-node": "4.0.0-beta.83",
+    "@opencode-ai/stats-core": "*",
+    "effect": "4.0.0-beta.83",
+    "sst": "4.13.1"
   },
   "devDependencies": {
-    "@tsconfig/node22": "catalog:",
-    "@types/bun": "catalog:",
-    "@types/node": "catalog:",
-    "@typescript/native-preview": "catalog:",
-    "typescript": "catalog:"
+    "@tsconfig/node22": "22.0.2",
+    "@types/node": "24.12.2",
+    "@typescript/native-preview": "7.0.0-dev.20251207.1",
+    "typescript": "5.8.2"
   },
   "engines": {
     "node": ">=22"

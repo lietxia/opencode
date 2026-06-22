@@ -1,10 +1,12 @@
-#!/usr/bin/env bun
+#!/usr/bin/env -S node --import tsx
 
-import { $ } from "bun"
+import { $ } from "zx"
 import fs from "fs"
+import fsPromises from "node:fs/promises"
 import path from "path"
 import { fileURLToPath } from "url"
 import { createSolidTransformPlugin } from "@opentui/solid/bun-plugin"
+import esbuild from "esbuild"
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -28,8 +30,9 @@ const createEmbeddedWebUIBundle = async () => {
   console.log(`Building Web UI to embed in the binary`)
   const appDir = path.join(import.meta.dirname, "../../app")
   const dist = path.join(appDir, "dist")
-  await $`OPENCODE_CHANNEL=${Script.channel} bun run --cwd ${appDir} build`
-  const files = (await Array.fromAsync(new Bun.Glob("**/*").scan({ cwd: dist })))
+  await $`OPENCODE_CHANNEL=${Script.channel} npm run --cwd ${appDir} build`
+  const { glob } = await import("glob")
+  const files = (await glob("**/*", { cwd: dist }))
     .map((file) => file.replaceAll("\\", "/"))
     .filter((file) => !file.endsWith(".map"))
     .sort()
@@ -138,9 +141,9 @@ await $`rm -rf dist`
 
 const binaries: Record<string, string> = {}
 if (!skipInstall) {
-  await $`bun install --os="*" --cpu="*" @opentui/core@${pkg.dependencies["@opentui/core"]}`
-  await $`bun install --os="*" --cpu="*" @parcel/watcher@${pkg.dependencies["@parcel/watcher"]}`
-  await $`bun install --os="*" --cpu="*" @ff-labs/fff-bun@${pkg.dependencies["@ff-labs/fff-bun"]}`
+  await $`npm install --os="*" --cpu="*" @opentui/core@${pkg.dependencies["@opentui/core"]}`
+  await $`npm install --os="*" --cpu="*" @parcel/watcher@${pkg.dependencies["@parcel/watcher"]}`
+  await $`npm install --os="*" --cpu="*" @ff-labs/fff-bun@${pkg.dependencies["@ff-labs/fff-bun"]}`
 }
 for (const item of targets) {
   const name = [
@@ -161,41 +164,31 @@ for (const item of targets) {
   const parserWorker = fs.realpathSync(fs.existsSync(localPath) ? localPath : rootPath)
   const workerPath = "./src/cli/tui/worker.ts"
 
-  // Use platform-specific bunfs root path based on target OS
-  const bunfsRoot = item.os === "win32" ? "B:/~BUN/root/" : "/$bunfs/root/"
   const workerRelativePath = path.relative(dir, parserWorker).replaceAll("\\", "/")
 
-  await Bun.build({
+  await esbuild.build({
     conditions: ["bun", "node"],
     tsconfig: "./tsconfig.json",
     plugins: [plugin],
     external: ["node-gyp"],
     format: "esm",
     minify: true,
-    sourcemap: sourcemapsFlag ? "linked" : "none",
+    sourcemap: sourcemapsFlag ? "linked" : false,
+    bundle: true,
     splitting: true,
-    compile: {
-      autoloadBunfig: false,
-      autoloadDotenv: false,
-      autoloadTsconfig: true,
-      autoloadPackageJson: true,
-      target: name.replace(pkg.name, "bun") as any,
-      outfile: `dist/${name}/bin/opencode`,
-      execArgv: [`--user-agent=opencode/${Script.version}`, "--use-system-ca", "--"],
-      windows: {},
-    },
-    files: embeddedFileMap ? { "opencode-web-ui.gen.ts": embeddedFileMap } : {},
-    entrypoints: ["./src/index.ts", parserWorker, workerPath, ...(embeddedFileMap ? ["opencode-web-ui.gen.ts"] : [])],
+    outdir: `dist/${name}/bin`,
+    entryPoints: ["./src/index.ts", parserWorker, workerPath, ...(embeddedFileMap ? ["opencode-web-ui.gen.ts"] : [])],
     define: {
       FFF_LIBC: JSON.stringify(item.abi === "musl" ? "musl" : "gnu"),
       OPENCODE_VERSION: `'${Script.version}'`,
       OPENCODE_MODELS_DEV: generated.modelsData,
-      OTUI_TREE_SITTER_WORKER_PATH: bunfsRoot + workerRelativePath,
+      OTUI_TREE_SITTER_WORKER_PATH: JSON.stringify("./" + workerRelativePath),
       OPENCODE_WORKER_PATH: workerPath,
       OPENCODE_CHANNEL: `'${Script.channel}'`,
       OPENCODE_LIBC: item.os === "linux" ? `'${item.abi ?? "glibc"}'` : "",
       ...(item.os === "linux" ? { "process.env.OPENTUI_LIBC": JSON.stringify(item.abi ?? "glibc") } : {}),
     },
+    ...(embeddedFileMap ? { stdin: { contents: embeddedFileMap, resolveDir: dir, sourcefile: "opencode-web-ui.gen.ts" } } : {}),
   })
 
   // Smoke test: only run if binary is for current platform
@@ -212,7 +205,9 @@ for (const item of targets) {
   }
 
   await $`rm -rf ./dist/${name}/bin/tui`
-  await Bun.file(`dist/${name}/package.json`).write(
+  await fsPromises.mkdir(path.dirname(`dist/${name}/package.json`), { recursive: true })
+  await fsPromises.writeFile(
+    `dist/${name}/package.json`,
     JSON.stringify(
       {
         name,

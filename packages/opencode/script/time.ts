@@ -1,4 +1,4 @@
-#!/usr/bin/env bun
+#!/usr/bin/env -S node --import tsx
 
 import path from "path"
 const toDynamicallyImport = path.join(process.cwd(), process.argv[2])

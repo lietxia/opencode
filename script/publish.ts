@@ -1,8 +1,11 @@
-#!/usr/bin/env bun
+#!/usr/bin/env -S node --import tsx
 
 import { Script } from "@opencode-ai/script"
-import { $ } from "bun"
+import { $ } from "zx"
+import fs from "node:fs/promises"
+import path from "node:path"
 import { fileURLToPath } from "url"
+import { glob } from "glob"
 
 console.log("=== publishing ===\n")
 
@@ -10,22 +13,19 @@ const dir = fileURLToPath(new URL("..", import.meta.url))
 process.chdir(dir)
 const tag = `v${Script.version}`
 
-const pkgjsons = await Array.fromAsync(
-  new Bun.Glob("**/package.json").scan({
-    absolute: true,
-  }),
-).then((arr) => arr.filter((x) => !x.includes("node_modules") && !x.includes("dist")))
+const pkgjsons = await glob("**/package.json", { absolute: true, cwd: dir })
+  .then((arr) => arr.filter((x) => !x.includes("node_modules") && !x.includes("dist")))
 
 async function prepareReleaseFiles() {
   for (const file of pkgjsons) {
-    let pkg = await Bun.file(file).text()
+    let pkg = await fs.readFile(file, "utf-8")
     pkg = pkg.replaceAll(/"version": "[^"]+"/g, `"version": "${Script.version}"`)
     console.log("updated:", file)
-    await Bun.file(file).write(pkg)
+    await fs.writeFile(file, pkg)
   }
 
-  await $`bun install`
-  await $`./packages/sdk/js/script/build.ts`
+  await $`npm install`
+  await $`npx tsx ./packages/sdk/js/script/build.ts`
 }
 
 if (Script.release && !Script.preview) {
@@ -36,20 +36,20 @@ if (Script.release && !Script.preview) {
 await prepareReleaseFiles()
 
 console.log("\n=== cli ===\n")
-await $`bun ./packages/opencode/script/publish.ts`
+await $`npx tsx ./packages/opencode/script/publish.ts`
 
 console.log("\n=== preview cli ===\n")
-await $`bun ./packages/cli/script/publish.ts`
+await $`npx tsx ./packages/cli/script/publish.ts`
 
 console.log("\n=== sdk ===\n")
-await $`bun ./packages/sdk/js/script/publish.ts`
+await $`npx tsx ./packages/sdk/js/script/publish.ts`
 
 console.log("\n=== plugin ===\n")
-await $`bun ./packages/plugin/script/publish.ts`
+await $`npx tsx ./packages/plugin/script/publish.ts`
 
 if (Script.release) {
-  await $`bun ./packages/desktop/scripts/finalize-latest-json.ts`
-  await $`bun ./packages/desktop/scripts/finalize-latest-yml.ts`
+  await $`npx tsx ./packages/desktop/scripts/finalize-latest-json.ts`
+  await $`npx tsx ./packages/desktop/scripts/finalize-latest-yml.ts`
 }
 
 if (Script.release && !Script.preview) {

@@ -6,7 +6,7 @@
   "type": "module",
   "license": "MIT",
   "scripts": {
-    "test": "bun test --timeout 30000 --only-failures",
+    "test": "npm test --timeout 30000 --only-failures",
     "typecheck": "tsgo --noEmit"
   },
   "exports": {
@@ -47,26 +47,25 @@
     "./component/spinner": "./src/component/spinner.tsx"
   },
   "dependencies": {
-    "@opencode-ai/core": "workspace:*",
-    "@opencode-ai/plugin": "workspace:*",
-    "@opencode-ai/sdk": "workspace:*",
-    "@opencode-ai/ui": "workspace:*",
-    "@opentui/core": "catalog:",
-    "@opentui/keymap": "catalog:",
-    "@opentui/solid": "catalog:",
+    "@opencode-ai/core": "*",
+    "@opencode-ai/plugin": "*",
+    "@opencode-ai/sdk": "*",
+    "@opencode-ai/ui": "*",
+    "@opentui/core": "0.3.4",
+    "@opentui/keymap": "0.3.4",
+    "@opentui/solid": "0.3.4",
     "clipboardy": "4.0.0",
-    "diff": "catalog:",
-    "effect": "catalog:",
-    "fuzzysort": "catalog:",
+    "diff": "8.0.2",
+    "effect": "4.0.0-beta.83",
+    "fuzzysort": "3.1.0",
     "open": "10.1.2",
-    "opentui-spinner": "catalog:",
-    "remeda": "catalog:",
+    "opentui-spinner": "0.0.7",
+    "remeda": "2.26.0",
     "strip-ansi": "7.1.2",
-    "solid-js": "catalog:"
+    "solid-js": "1.9.10"
   },
   "devDependencies": {
-    "@tsconfig/bun": "catalog:",
-    "@types/bun": "catalog:",
-    "@typescript/native-preview": "catalog:"
+    "@tsconfig/node22": "22.0.2",
+    "@typescript/native-preview": "7.0.0-dev.20251207.1"
   }
 }

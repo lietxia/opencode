@@ -1,4 +1,8 @@
-#!/usr/bin/env bun
+#!/usr/bin/env -S node --import tsx
+
+import fs from "node:fs/promises"
+import path from "node:path"
+import { spawn } from "node:child_process"
 
 async function sendToPostHog(event: string, properties: Record<string, any>) {
   const key = process.env["POSTHOG_KEY"]
@@ -133,7 +137,7 @@ async function save(githubTotal: number, npmDownloads: number) {
   let content = ""
 
   try {
-    content = await Bun.file(file).text()
+    content = await fs.readFile(file, "utf-8")
     const lines = content.trim().split("\n")
 
     for (let i = lines.length - 1; i >= 0; i--) {
@@ -180,8 +184,11 @@ async function save(githubTotal: number, npmDownloads: number) {
       "# Download Stats\n\n| Date | GitHub Downloads | npm Downloads | Total |\n|------|------------------|---------------|-------|\n"
   }
 
-  await Bun.write(file, content + line)
-  await Bun.spawn(["bunx", "prettier", "--write", file]).exited
+  await fs.writeFile(file, content + line)
+  const prettier = spawn("npx", ["prettier", "--write", file], { stdio: "inherit" })
+  await new Promise<void>((resolve, reject) => {
+    prettier.on("close", (code) => { code === 0 ? resolve() : reject(new Error(`prettier exited with code ${code}`)) })
+  })
 
   console.log(
     `\nAppended stats to ${file}: GitHub ${githubTotal.toLocaleString()}${githubChangeStr}, npm ${npmDownloads.toLocaleString()}${npmChangeStr}, Total ${total.toLocaleString()}${totalChangeStr}`,

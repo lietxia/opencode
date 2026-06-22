@@ -6,7 +6,12 @@
     "moduleResolution": "bundler",
     "strict": true,
     "noEmit": true,
-    "types": ["bun", "node"]
+    "types": [
+      "node"
+    ]
   },
-  "include": ["src", "../core/src/resource.d.ts"]
+  "include": [
+    "src",
+    "../core/src/resource.d.ts"
+  ]
 }

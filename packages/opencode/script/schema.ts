@@ -1,9 +1,11 @@
-#!/usr/bin/env bun
+#!/usr/bin/env -S node --import tsx
 
 import { Config } from "@/config/config"
 import { ConfigV1 } from "@opencode-ai/core/v1/config/config"
 import { TuiConfig } from "@opencode-ai/tui/config"
 import { Schema } from "effect"
+import fs from "node:fs/promises"
+import path from "node:path"
 
 type JsonSchema = Record<string, unknown>
 const MODEL_REF = "https://models.dev/model-schema.json#/$defs/Model"
@@ -69,9 +71,11 @@ const configFile = process.argv[2]
 const tuiFile = process.argv[3]
 
 console.log(configFile)
-await Bun.write(configFile, JSON.stringify(generateEffect(ConfigV1.Info), null, 2))
+await fs.mkdir(path.dirname(configFile), { recursive: true }).catch(() => {})
+await fs.writeFile(configFile, JSON.stringify(generateEffect(ConfigV1.Info), null, 2))
 
 if (tuiFile) {
   console.log(tuiFile)
-  await Bun.write(tuiFile, JSON.stringify(generateEffect(TuiConfig.Info), null, 2))
+  await fs.mkdir(path.dirname(tuiFile), { recursive: true }).catch(() => {})
+  await fs.writeFile(tuiFile, JSON.stringify(generateEffect(TuiConfig.Info), null, 2))
 }

@@ -1,6 +1,7 @@
-#!/usr/bin/env bun
+#!/usr/bin/env -S node --import tsx
 
-import { $ } from "bun"
+import { $ } from "zx"
+import fs from "node:fs/promises"
 import path from "path"
 import { fileURLToPath } from "url"
 
@@ -12,7 +13,8 @@ const tag = process.env.TAG ?? "24.04"
 const push = process.argv.includes("--push") || process.env.PUSH === "1"
 
 const root = path.join(rootDir, "package.json")
-const pkg = await Bun.file(root).json()
+const content = await fs.readFile(root, "utf-8")
+const pkg = JSON.parse(content)
 const manager = pkg.packageManager ?? ""
 const bun = manager.startsWith("bun@") ? manager.slice(4) : ""
 if (!bun) throw new Error("packageManager must be bun@<version>")

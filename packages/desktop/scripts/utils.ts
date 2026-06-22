@@ -1,9 +1,9 @@
-import { $ } from "bun"
+import { $ } from "zx"
 
 export type Channel = "dev" | "beta" | "prod"
 
 export function resolveChannel(): Channel {
-  const raw = Bun.env.OPENCODE_CHANNEL
+  const raw = process.env.OPENCODE_CHANNEL
   if (raw === "dev" || raw === "beta" || raw === "prod") return raw
   return "dev"
 }
@@ -41,7 +41,7 @@ export const SIDECAR_BINARIES: Array<{ rustTarget: string; ocBinary: string; ass
   },
 ]
 
-export const RUST_TARGET = Bun.env.RUST_TARGET
+export const RUST_TARGET = process.env.RUST_TARGET
 
 function nativeTarget() {
   const { platform, arch } = process

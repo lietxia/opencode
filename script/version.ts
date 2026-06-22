@@ -1,20 +1,21 @@
-#!/usr/bin/env bun
+#!/usr/bin/env -S node --import tsx
 
 import { Script } from "@opencode-ai/script"
-import { $ } from "bun"
+import { $ } from "zx"
+import fs from "node:fs/promises"
+import path from "node:path"
 
 const output = [`version=${Script.version}`]
 const sha = process.env.GITHUB_SHA ?? (await $`git rev-parse HEAD`.text()).trim()
 
 if (!Script.preview) {
-  await $`bun script/changelog.ts --to ${sha}`.cwd(process.cwd())
+  await $`npx tsx script/changelog.ts --to ${sha}`.cwd(process.cwd())
   const file = `${process.cwd()}/UPCOMING_CHANGELOG.md`
-  const body = await Bun.file(file)
-    .text()
-    .catch(() => "No notable changes")
+  const body = await fs.readFile(file, "utf-8").catch(() => "No notable changes")
   const dir = process.env.RUNNER_TEMP ?? "/tmp"
   const notesFile = `${dir}/opencode-release-notes.txt`
-  await Bun.write(notesFile, body)
+  await fs.mkdir(path.dirname(notesFile), { recursive: true })
+  await fs.writeFile(notesFile, body)
   await $`gh release create v${Script.version} -d --target ${sha} --title "v${Script.version}" --notes-file ${notesFile}`
   const release = await $`gh release view v${Script.version} --json tagName,databaseId`.json()
   output.push(`release=${release.databaseId}`)
@@ -30,7 +31,8 @@ if (!Script.preview) {
 output.push(`repo=${process.env.GH_REPO}`)
 
 if (process.env.GITHUB_OUTPUT) {
-  await Bun.write(process.env.GITHUB_OUTPUT, output.join("\n"))
+  await fs.mkdir(path.dirname(process.env.GITHUB_OUTPUT), { recursive: true }).catch(() => {})
+  await fs.writeFile(process.env.GITHUB_OUTPUT, output.join("\n"))
 }
 
 process.exit(0)

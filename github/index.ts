@@ -1,4 +1,4 @@
-import { $ } from "bun"
+import { $ } from "zx"
 import path from "node:path"
 import { Octokit } from "@octokit/rest"
 import { graphql } from "@octokit/graphql"

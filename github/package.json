@@ -4,9 +4,7 @@
   "type": "module",
   "private": true,
   "license": "MIT",
-  "devDependencies": {
-    "@types/bun": "catalog:"
-  },
+  "devDependencies": {},
   "peerDependencies": {
     "typescript": "^5"
   },
@@ -14,7 +12,7 @@
     "@actions/core": "1.11.1",
     "@actions/github": "6.0.1",
     "@octokit/graphql": "9.0.1",
-    "@octokit/rest": "catalog:",
-    "@opencode-ai/sdk": "workspace:*"
+    "@octokit/rest": "22.0.0",
+    "@opencode-ai/sdk": "*"
   }
 }

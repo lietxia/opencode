@@ -1,6 +1,7 @@
-#!/usr/bin/env bun
+#!/usr/bin/env -S node --import tsx
 import { Script } from "@opencode-ai/script"
-import { $ } from "bun"
+import { $ } from "zx"
+import fs from "node:fs/promises"
 import { fileURLToPath } from "url"
 
 const dir = fileURLToPath(new URL("..", import.meta.url))
@@ -10,8 +11,8 @@ async function published(name: string, version: string) {
   return (await $`npm view ${name}@${version} version`.nothrow()).exitCode === 0
 }
 
-await $`bun tsc`
-const originalText = await Bun.file("package.json").text()
+await $`npx tsc`
+const originalText = await fs.readFile("package.json", "utf-8")
 const pkg = JSON.parse(originalText) as {
   name: string
   version: string
@@ -22,17 +23,16 @@ if (await published(pkg.name, pkg.version)) {
 } else {
   for (const [key, value] of Object.entries(pkg.exports)) {
     const file = value.replace("./src/", "./dist/").replace(".ts", "")
-    // @ts-ignore
     pkg.exports[key] = {
       import: file + ".js",
       types: file + ".d.ts",
     }
   }
-  await Bun.write("package.json", JSON.stringify(pkg, null, 2))
+  await fs.writeFile("package.json", JSON.stringify(pkg, null, 2))
   try {
-    await $`bun pm pack`
+    await $`npm pack`
     await $`npm publish *.tgz --tag ${Script.channel} --access public`
   } finally {
-    await Bun.write("package.json", originalText)
+    await fs.writeFile("package.json", originalText)
   }
 }

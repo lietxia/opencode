@@ -1,17 +1,18 @@
 import path from "path"
+import fs from "node:fs/promises"
 import { appendFile, mkdir, rename, rm } from "fs/promises"
 
 export function readText(filePath: string) {
-  return Bun.file(filePath).text()
+  return fs.readFile(filePath, "utf-8")
 }
 
 export function readJson<T>(filePath: string) {
-  return Bun.file(filePath).json() as Promise<T>
+  return fs.readFile(filePath, "utf-8").then((text) => JSON.parse(text)) as Promise<T>
 }
 
 export async function writeText(filePath: string, content: string) {
   await mkdir(path.dirname(filePath), { recursive: true })
-  await Bun.write(filePath, content)
+  await fs.writeFile(filePath, content)
 }
 
 export async function appendText(filePath: string, content: string) {
@@ -22,7 +23,7 @@ export async function appendText(filePath: string, content: string) {
 export async function writeJsonAtomic(filePath: string, value: unknown) {
   await mkdir(path.dirname(filePath), { recursive: true })
   const temporary = `${filePath}.${process.pid}.${crypto.randomUUID()}.tmp`
-  await Bun.write(temporary, JSON.stringify(value)).catch(async (error) => {
+  await fs.writeFile(temporary, JSON.stringify(value)).catch(async (error) => {
     await rm(temporary, { force: true }).catch(() => undefined)
     throw error
   })

@@ -1,6 +1,7 @@
-#!/usr/bin/env bun
+#!/usr/bin/env -S node --import tsx
 
-import { $ } from "bun"
+import { $ } from "zx"
+import fs from "node:fs/promises"
 import path from "path"
 
 const dir = process.env.LATEST_YML_DIR!
@@ -71,9 +72,10 @@ function serialize(data: LatestYml) {
 }
 
 async function read(subdir: string, filename: string): Promise<LatestYml | undefined> {
-  const file = Bun.file(path.join(dir, subdir, filename))
-  if (!(await file.exists())) return undefined
-  return parse(await file.text())
+  const filePath = path.join(dir, subdir, filename)
+  const exists = await fs.access(filePath).then(() => true, () => false)
+  if (!exists) return undefined
+  return parse(await fs.readFile(filePath, "utf-8"))
 }
 
 const output: Record<string, string> = {}
@@ -116,7 +118,8 @@ const tmp = process.env.RUNNER_TEMP ?? "/tmp"
 
 for (const [filename, content] of Object.entries(output)) {
   const filepath = path.join(tmp, filename)
-  await Bun.write(filepath, content)
+  await fs.mkdir(path.dirname(filepath), { recursive: true })
+  await fs.writeFile(filepath, content)
   await $`gh release upload ${tag} ${filepath} --clobber --repo ${repo}`
   console.log(`uploaded ${filename}`)
 }

@@ -1,16 +1,26 @@
 {
   "$schema": "https://json.schemastore.org/tsconfig",
-  "extends": "@tsconfig/bun/tsconfig.json",
+  "extends": "@tsconfig/node22/tsconfig.json",
   "compilerOptions": {
     "jsx": "preserve",
     "jsxImportSource": "@opentui/solid",
-    "lib": ["ESNext", "DOM", "DOM.Iterable"],
+    "lib": [
+      "ESNext",
+      "DOM",
+      "DOM.Iterable"
+    ],
     "types": [],
     "noUncheckedIndexedAccess": false,
-    "customConditions": ["browser"],
+    "customConditions": [
+      "browser"
+    ],
     "paths": {
-      "@/*": ["./src/*"],
-      "@test/*": ["./test/*"]
+      "@/*": [
+        "./src/*"
+      ],
+      "@test/*": [
+        "./test/*"
+      ]
     }
   }
 }

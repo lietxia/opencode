@@ -1,9 +1,12 @@
-#!/usr/bin/env bun
+#!/usr/bin/env -S node --import tsx
 
 import path from "node:path"
+import fs from "node:fs/promises"
+import { glob } from "glob"
+import { spawn } from "node:child_process"
 
 const args = process.argv.slice(2)
-const usage = "Usage: bun run script/upgrade-opentui.ts [--snapshot] <version>"
+const usage = "Usage: npx tsx script/upgrade-opentui.ts [--snapshot] <version>"
 
 if (args.includes("--help") || args.includes("-h")) {
   console.log(usage)
@@ -33,12 +36,12 @@ if (snapshotArg === "--snapshot=") {
 }
 
 const ver = raw.replace(/^v/, "")
-const root = path.resolve(import.meta.dir, "..")
+const root = path.resolve(import.meta.dirname, "..")
 const lockfile = path.join(root, "bun.lock")
 const skip = new Set([".git", ".opencode", ".turbo", "dist", "node_modules"])
 const keys = ["@opentui/core", "@opentui/keymap", "@opentui/solid"] as const
 
-const files = (await Array.fromAsync(new Bun.Glob("**/package.json").scan({ cwd: root }))).filter(
+const files = (await glob("**/package.json", { cwd: root })).filter(
   (file) => !file.split("/").some((part) => skip.has(part)),
 )
 
@@ -99,7 +102,7 @@ const out = (
   await Promise.all(
     files.map(async (rel) => {
       const file = path.join(root, rel)
-      const txt = await Bun.file(file).text()
+      const txt = await fs.readFile(file, "utf-8")
       const json = JSON.parse(txt)
       const hit = [
         editCatalog(json.workspaces?.catalog),
@@ -109,7 +112,7 @@ const out = (
         editDeps(json.peerDependencies, "peer"),
       ].some(Boolean)
       if (!hit) return null
-      await Bun.write(file, `${JSON.stringify(json, null, 2)}\n`)
+      await fs.writeFile(file, `${JSON.stringify(json, null, 2)}\n`)
       return rel
     }),
   )
@@ -127,12 +130,13 @@ if (out.length > 0) {
 }
 
 console.log("Running bun install to update bun.lock...")
-const install = Bun.spawn([process.execPath, "install"], {
+const install = spawn(process.execPath, ["install"], {
   cwd: root,
-  stdout: "inherit",
-  stderr: "inherit",
+  stdio: "inherit",
 })
-const installCode = await install.exited
+const installCode = await new Promise<number>((resolve) => {
+  install.on("close", resolve)
+})
 if (installCode !== 0) process.exit(installCode)
 
 const fixed = await fixKnownLockfileIssues()
@@ -155,7 +159,7 @@ if (stale.length > 0) {
 console.log("bun.lock opentui versions are consistent")
 
 async function fixKnownLockfileIssues() {
-  const txt = await Bun.file(lockfile).text()
+  const txt = await fs.readFile(lockfile, "utf-8")
   const stale = findStaleLockfileEntriesInText(txt)
   if (stale.length === 0) return []
   if (stale.some((item) => !item.entry.startsWith("opentui-spinner/@opentui/"))) return []
@@ -167,7 +171,7 @@ async function fixKnownLockfileIssues() {
 
   if (removed.length === 0) return []
 
-  await Bun.write(
+  await fs.writeFile(
     lockfile,
     txt
       .split("\n")
@@ -178,7 +182,7 @@ async function fixKnownLockfileIssues() {
 }
 
 async function findStaleLockfileEntries() {
-  return findStaleLockfileEntriesInText(await Bun.file(lockfile).text())
+  return findStaleLockfileEntriesInText(await fs.readFile(lockfile, "utf-8"))
 }
 
 function findStaleLockfileEntriesInText(txt: string) {

@@ -1,5 +1,6 @@
-#!/usr/bin/env bun
+#!/usr/bin/env -S node --import tsx
 import * as path from "path"
+import * as fs from "node:fs/promises"
 import * as ts from "typescript"
 
 const BASE_DIR = "/home/thdxr/dev/projects/anomalyco/opencode/packages/opencode"
@@ -30,14 +31,12 @@ async function tryExtensions(filePath: string): Promise<string | null> {
   const extensions = [".ts", ".tsx", ".js", ".jsx"]
 
   try {
-    const file = Bun.file(filePath)
-    const stat = await file.stat()
+    const stat = await fs.stat(filePath)
 
-    if (stat?.isDirectory()) {
+    if (stat.isDirectory()) {
       for (const ext of extensions) {
         const indexPath = path.join(filePath, "index" + ext)
-        const indexFile = Bun.file(indexPath)
-        if (await indexFile.exists()) return indexPath
+        if (await fs.access(indexPath).then(() => true, () => false)) return indexPath
       }
       return null
     }
@@ -48,8 +47,7 @@ async function tryExtensions(filePath: string): Promise<string | null> {
     // Path doesn't exist, try adding extensions
     for (const ext of extensions) {
       const withExt = filePath + ext
-      const extFile = Bun.file(withExt)
-      if (await extFile.exists()) return withExt
+      if (await fs.access(withExt).then(() => true, () => false)) return withExt
     }
     return null
   }
@@ -109,7 +107,7 @@ async function traceFile(filePath: string, depth = 0): Promise<void> {
 
   let content: string
   try {
-    content = await Bun.file(filePath).text()
+    content = await fs.readFile(filePath, "utf-8")
   } catch {
     return
   }
@@ -140,8 +138,7 @@ async function main() {
   const entryPath = path.join(BASE_DIR, ENTRY_FILE)
 
   // Check if file exists
-  const file = Bun.file(entryPath)
-  if (!(await file.exists())) {
+  if (!(await fs.access(entryPath).then(() => true, () => false))) {
     console.error(`File not found: ${ENTRY_FILE}`)
     console.error(`Resolved to: ${entryPath}`)
     process.exit(1)

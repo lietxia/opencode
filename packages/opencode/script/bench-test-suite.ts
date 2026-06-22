@@ -1,8 +1,10 @@
 // Full-suite timing harness for the test-speed research in ../../perf/test-suite.md.
 // Use this for periodic sanity checks; use profile-test-files.ts for discovery.
-// Env: BENCH_WARMUPS=0 BENCH_RUNS=1 bun run bench:test
-const warmups = Number(Bun.env.BENCH_WARMUPS ?? 0)
-const runs = Number(Bun.env.BENCH_RUNS ?? 1)
+// Env: BENCH_WARMUPS=0 BENCH_RUNS=1 npm run bench:test
+import { spawn } from "node:child_process"
+
+const warmups = Number(process.env.BENCH_WARMUPS ?? 0)
+const runs = Number(process.env.BENCH_RUNS ?? 1)
 const timings: number[] = []
 
 if (!Number.isInteger(warmups) || warmups < 0) {
@@ -20,14 +22,13 @@ for (const index of Array.from({ length: warmups + runs }, (_, index) => index))
   const start = performance.now()
   console.log(`bench:test ${label}`)
 
-  const proc = Bun.spawn(["bun", "test", "--timeout", "30000"], {
-    cwd: import.meta.dir + "/..",
-    stdout: "inherit",
-    stderr: "inherit",
-    env: Bun.env,
+  const proc = spawn("bun", ["test", "--timeout", "30000"], {
+    cwd: import.meta.dirname + "/..",
+    stdio: "inherit",
+    env: { ...process.env },
   })
 
-  const exitCode = await proc.exited
+  const exitCode = await new Promise<number>((resolve) => { proc.on("close", resolve) })
   if (exitCode !== 0) {
     console.error(`bench:test failed during ${label} with exit code ${exitCode}`)
     process.exit(exitCode)

@@ -1,9 +1,9 @@
-#!/usr/bin/env bun
+#!/usr/bin/env -S node --import tsx
 
-import { $ } from "bun"
+import { $ } from "zx"
 
-await $`bun ./packages/sdk/js/script/build.ts`
+await $`npx tsx ./packages/sdk/js/script/build.ts`
 
-await $`bun dev generate > ../sdk/openapi.json`.cwd("packages/opencode")
+await $`npx tsx -e "import {dev} from './packages/opencode/src/cli/cmd/dev'; dev({generate: true})" 2>/dev/null || bun dev generate > ../sdk/openapi.json`.cwd("packages/opencode")
 
-await $`./script/format.ts`
+await $`npx tsx ./script/format.ts`

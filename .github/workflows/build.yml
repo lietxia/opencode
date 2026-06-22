@@ -1,0 +1,81 @@
+name: build
+run-name: "Build ${{ inputs.target }}"
+
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: "Build target"
+        required: true
+        type: choice
+        options:
+          - cli
+          - desktop
+          - all
+      platform:
+        description: "Platform filter"
+        required: false
+        type: choice
+        options:
+          - all
+          - linux-x64
+          - linux-arm64
+          - linux-musl
+          - darwin-x64
+          - darwin-arm64
+          - win32-x64
+          - win32-arm64
+        default: all
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  build-cli:
+    if: inputs.target == 'cli' || inputs.target == 'all'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3.6.0
+      - uses: ./.github/actions/setup-node
+      - name: Build CLI
+        run: npx tsx ./packages/opencode/script/build.ts
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: opencode-cli
+          path: packages/opencode/dist/opencode-*
+
+  build-desktop:
+    if: inputs.target == 'desktop' || inputs.target == 'all'
+    runs-on: ${{ matrix.settings.host }}
+    strategy:
+      fail-fast: false
+      matrix:
+        settings:
+          - host: macos-13
+            target: x86_64-apple-darwin
+            platform_flag: --mac --x64
+          - host: macos-latest
+            target: aarch64-apple-darwin
+            platform_flag: --mac --arm64
+          - host: windows-latest
+            target: aarch64-pc-windows-msvc
+            platform_flag: --win --arm64
+          - host: windows-latest
+            target: x86_64-pc-windows-msvc
+            platform_flag: --win
+          - host: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            platform_flag: --linux
+    steps:
+      - uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3.6.0
+      - uses: ./.github/actions/setup-node
+      - name: Prepare
+        run: npx tsx ./scripts/prepare.ts
+        working-directory: packages/desktop
+      - name: Build
+        run: npm run build
+        working-directory: packages/desktop
+      - name: Package
+        run: npx electron-builder ${{ matrix.settings.platform_flag }} --publish never --config electron-builder.config.ts
+        working-directory: packages/desktop

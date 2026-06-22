@@ -1,6 +1,7 @@
-#!/usr/bin/env bun
+#!/usr/bin/env -S node --import tsx
 
 import { parseArgs } from "util"
+import { spawn } from "node:child_process"
 
 const defaultRepo = "anomalyco/opencode"
 const defaultAgeMonths = 1
@@ -11,7 +12,7 @@ const positiveReactions = new Set(["THUMBS_UP", "HEART", "HOORAY", "ROCKET"])
 const cleanupLabel = "automated-pr-cleanup"
 
 const { values } = parseArgs({
-  args: Bun.argv.slice(2),
+  args: process.argv.slice(2),
   options: {
     execute: { type: "boolean", default: false },
     "dry-run": { type: "boolean", default: false },
@@ -27,7 +28,7 @@ const { values } = parseArgs({
 
 if (values.help) {
   console.log(`
-Usage: bun script/github/close-prs.ts [options]
+Usage: npx tsx script/github/close-prs.ts [options]
 
 Dry-run is the default. The script only comments and closes PRs when --execute is passed.
 
@@ -48,9 +49,9 @@ Options:
   -h, --help             Show this help message
 
 Examples:
-  bun script/github/close-prs.ts
-  bun script/github/close-prs.ts --threshold 2 --print-limit 100
-  bun script/github/close-prs.ts --execute --threshold 2 --max-close 25
+  npx tsx script/github/close-prs.ts
+  npx tsx script/github/close-prs.ts --threshold 2 --print-limit 100
+  npx tsx script/github/close-prs.ts --execute --threshold 2 --max-close 25
 `)
   process.exit(0)
 }
@@ -346,13 +347,15 @@ async function requireToken() {
   const envToken = process.env.GITHUB_TOKEN ?? process.env.GH_TOKEN
   if (envToken) return envToken
 
-  const proc = Bun.spawn(["gh", "auth", "token"], {
+  const proc = spawn("gh", ["auth", "token"], {
     stdout: "pipe",
     stderr: "pipe",
   })
-  const stdout = await new Response(proc.stdout).text()
-  const stderr = await new Response(proc.stderr).text()
-  const exitCode = await proc.exited
+  let stdout = ""
+  let stderr = ""
+  proc.stdout.on("data", (data: Buffer) => { stdout += data.toString() })
+  proc.stderr.on("data", (data: Buffer) => { stderr += data.toString() })
+  const exitCode = await new Promise<number>((resolve) => { proc.on("close", resolve) })
   if (exitCode === 0 && stdout.trim()) return stdout.trim()
 
   throw new Error(

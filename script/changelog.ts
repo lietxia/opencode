@@ -1,13 +1,15 @@
-#!/usr/bin/env bun
+#!/usr/bin/env -S node --import tsx
 
 import { rm } from "fs/promises"
+import fs from "node:fs/promises"
 import path from "path"
 import { parseArgs } from "util"
+import { spawn } from "node:child_process"
 
-const root = path.resolve(import.meta.dir, "..")
+const root = path.resolve(import.meta.dirname, "..")
 const file = path.join(root, "UPCOMING_CHANGELOG.md")
 const { values, positionals } = parseArgs({
-  args: Bun.argv.slice(2),
+  args: process.argv.slice(2),
   options: {
     from: { type: "string", short: "f" },
     to: { type: "string", short: "t" },
@@ -25,7 +27,7 @@ if (values.to) args.push("--to", values.to)
 
 if (values.help) {
   console.log(`
-Usage: bun script/changelog.ts [options]
+Usage: npx tsx script/changelog.ts [options]
 
 Generates UPCOMING_CHANGELOG.md by running the opencode changelog command.
 
@@ -38,9 +40,9 @@ Options:
   -h, --help             Show this help message
 
 Examples:
-  bun script/changelog.ts
-  bun script/changelog.ts --from 1.0.200
-  bun script/changelog.ts -f 1.0.200 -t 1.0.205
+  npx tsx script/changelog.ts
+  npx tsx script/changelog.ts --from 1.0.200
+  npx tsx script/changelog.ts -f 1.0.200 -t 1.0.205
 `)
   process.exit(0)
 }
@@ -52,19 +54,23 @@ const cmd = ["opencode", "run"]
 cmd.push("--variant", values.variant)
 cmd.push("--command", "changelog", "--", ...args)
 
-const proc = Bun.spawn(cmd, {
+const proc = spawn(cmd[0], cmd.slice(1), {
   cwd: root,
-  stdin: "inherit",
-  stdout: quiet ? "pipe" : "inherit",
-  stderr: quiet ? "pipe" : "inherit",
+  stdio: quiet ? "pipe" : "inherit",
 })
 
-const [out, err] = quiet
-  ? await Promise.all([new Response(proc.stdout).text(), new Response(proc.stderr).text()])
-  : ["", ""]
-const code = await proc.exited
+let out = ""
+let err = ""
+if (quiet) {
+  proc.stdout?.on("data", (data: Buffer) => { out += data.toString() })
+  proc.stderr?.on("data", (data: Buffer) => { err += data.toString() })
+}
+
+const code = await new Promise<number>((resolve) => {
+  proc.on("close", resolve)
+})
 if (code === 0) {
-  if (values.print) process.stdout.write(await Bun.file(file).text())
+  if (values.print) process.stdout.write(await fs.readFile(file, "utf-8"))
   process.exit(0)
 }
 

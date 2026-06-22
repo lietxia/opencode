@@ -12,11 +12,20 @@
     "allowJs": true,
     "strict": true,
     "noEmit": true,
-    "types": ["vite/client", "bun"],
+    "types": [
+      "vite/client",
+      "node"
+    ],
     "isolatedModules": true,
     "paths": {
-      "~/*": ["./src/*"]
+      "~/*": [
+        "./src/*"
+      ]
     }
   },
-  "include": ["*.ts", "src", "../core/src/resource.d.ts"]
+  "include": [
+    "*.ts",
+    "src",
+    "../core/src/resource.d.ts"
+  ]
 }

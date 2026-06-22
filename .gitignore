@@ -31,4 +31,7 @@ opencode-dev
 UPCOMING_CHANGELOG.md
 logs/
 *.bun-build
+bun.lock
+bun.lockb
 tsconfig.tsbuildinfo
+package-lock.json

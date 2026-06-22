@@ -1,4 +1,4 @@
-import { $ } from "bun"
+import { $ } from "zx"
 import { resolveChannel } from "./utils"
 
 const arg = process.argv[2]

@@ -38,7 +38,7 @@ const asNumber = (value: unknown) => (typeof value === "number" && Number.isFini
 
 const asString = (value: unknown) => (typeof value === "string" ? value : undefined)
 
-const readJson = async (file: string) => JSON.parse(await Bun.file(file).text()) as unknown
+const readJson = async (file: string) => JSON.parse(await fs.readFile(file, "utf-8")) as unknown
 
 const walk = async (dir: string): Promise<ReadonlyArray<string>> =>
   (await fs.readdir(dir, { withFileTypes: true }))

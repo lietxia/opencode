@@ -1,10 +1,11 @@
 import { createOpencodeClient, createOpencodeServer } from "@opencode-ai/sdk"
-import { pathToFileURL } from "bun"
+import { pathToFileURL } from "url"
+import { glob } from "node:fs/promises"
 
 const server = await createOpencodeServer()
 const client = createOpencodeClient({ baseUrl: server.url })
 
-const input = await Array.fromAsync(new Bun.Glob("packages/core/*.ts").scan())
+const input = await Array.fromAsync(glob("packages/core/*.ts"))
 
 const tasks: Promise<void>[] = []
 for await (const file of input) {

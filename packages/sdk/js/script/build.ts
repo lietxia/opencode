@@ -1,17 +1,18 @@
-#!/usr/bin/env bun
+#!/usr/bin/env -S node --import tsx
 import { fileURLToPath } from "url"
+import fs from "node:fs/promises"
 
 const dir = fileURLToPath(new URL("..", import.meta.url))
 process.chdir(dir)
 
-import { $ } from "bun"
+import { $ } from "zx"
 import path from "path"
 
 import { createClient } from "@hey-api/openapi-ts"
 
 const opencode = path.resolve(dir, "../../opencode")
 
-await $`bun dev generate > ${dir}/openapi.json`.cwd(opencode)
+await $`npx tsx -e "import('@opencode-ai/opencode/src/cli/cmd/dev').then(m => m.dev({generate:true}))" 2>/dev/null || bun dev generate > ${dir}/openapi.json`.cwd(opencode)
 
 await createClient({
   input: "./openapi.json",
@@ -47,8 +48,7 @@ await createClient({
 // from a mock generator gets type-checked against the wrong shape. Drop the
 // arg so TReturn defaults to void.
 const sseTypesPath = "./src/v2/gen/client/types.gen.ts"
-const sseTypesFile = Bun.file(sseTypesPath)
-const sseTypesSource = await sseTypesFile.text()
+const sseTypesSource = await fs.readFile(sseTypesPath, "utf-8")
 const sseTypesPatched = sseTypesSource.replace(
   "=> Promise<ServerSentEventsResult<TData, TError>>",
   "=> Promise<ServerSentEventsResult<TData>>",
@@ -56,10 +56,10 @@ const sseTypesPatched = sseTypesSource.replace(
 if (sseTypesPatched === sseTypesSource) {
   throw new Error(`SseFn patch did not apply; @hey-api/openapi-ts output may have changed (${sseTypesPath})`)
 }
-await Bun.write(sseTypesPath, sseTypesPatched)
+await fs.writeFile(sseTypesPath, sseTypesPatched)
 
-await $`bun prettier --write src/gen`
-await $`bun prettier --write src/v2`
+await $`npx prettier --write src/gen`
+await $`npx prettier --write src/v2`
 await $`rm -rf dist`
-await $`bun tsc`
+await $`npx tsc`
 await $`rm openapi.json`

@@ -1,6 +1,8 @@
-#!/usr/bin/env bun
+#!/usr/bin/env -S node --import tsx
 
-import { $ } from "bun"
+import { $ } from "zx"
+import fs from "node:fs/promises"
+import path from "node:path"
 import { parseArgs } from "util"
 
 type Release = {
@@ -24,9 +26,9 @@ type Diff = {
 
 const repo = process.env.GH_REPO ?? "anomalyco/opencode"
 const bot = ["actions-user", "github-actions[bot]", "opencode", "opencode-agent[bot]"]
+const teamMembersPath = path.resolve(import.meta.dirname, "../.github/TEAM_MEMBERS")
 const team = [
-  ...(await Bun.file(new URL("../.github/TEAM_MEMBERS", import.meta.url))
-    .text()
+  ...(await fs.readFile(teamMembersPath, "utf-8")
     .then((x) => x.split(/\r?\n/).map((x) => x.trim()))
     .then((x) => x.filter((x) => x && !x.startsWith("#")))),
   ...bot,
@@ -251,7 +253,7 @@ function format(from: string, to: string, list: Commit[], thanks: string[]) {
 
 if (import.meta.main) {
   const { values } = parseArgs({
-    args: Bun.argv.slice(2),
+    args: process.argv.slice(2),
     options: {
       from: { type: "string", short: "f" },
       to: { type: "string", short: "t", default: "HEAD" },
@@ -261,7 +263,7 @@ if (import.meta.main) {
 
   if (values.help) {
     console.log(`
-Usage: bun script/raw-changelog.ts [options]
+Usage: npx tsx script/raw-changelog.ts [options]
 
 Options:
   -f, --from <version>   Starting version (default: latest non-draft GitHub release)
@@ -269,9 +271,9 @@ Options:
   -h, --help             Show this help message
 
 Examples:
-  bun script/raw-changelog.ts
-  bun script/raw-changelog.ts --from 1.0.200
-  bun script/raw-changelog.ts -f 1.0.200 -t 1.0.205
+  npx tsx script/raw-changelog.ts
+  npx tsx script/raw-changelog.ts --from 1.0.200
+  npx tsx script/raw-changelog.ts -f 1.0.200 -t 1.0.205
 `)
     process.exit(0)
   }

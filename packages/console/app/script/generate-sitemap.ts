@@ -1,4 +1,4 @@
-#!/usr/bin/env bun
+#!/usr/bin/env -S node --import tsx
 import { readdir, writeFile } from "fs/promises"
 import { join, dirname } from "path"
 import { fileURLToPath } from "url"

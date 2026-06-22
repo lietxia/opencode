@@ -1,4 +1,5 @@
 import { resolveChannel } from "./utils"
+import fs from "node:fs/promises"
 
 const arg = process.argv[2]
 const channel = arg === "dev" || arg === "beta" || arg === "prod" ? arg : resolveChannel()
@@ -43,5 +44,6 @@ const xml = `<?xml version="1.0" encoding="UTF-8"?>
 </component>
 `
 
-await Bun.write(`resources/${appId}.metainfo.xml`, xml)
+await fs.mkdir("resources", { recursive: true })
+await fs.writeFile(`resources/${appId}.metainfo.xml`, xml)
 console.log(`Generated metainfo for ${channel} at resources/${appId}.metainfo.xml`)
